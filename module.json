@@ -1,0 +1,19 @@
+{
+  "id": "foundry-translation",
+  "title": "Journal Translator",
+  "description": "A module to translate journal entries using the OpenAI API.",
+  "version": "1.0.0",
+  "authors": [
+      {
+          "name": "DawidIzydor",
+          "url": "https://dawid-izydor.pl",
+          "email": "admin@dawid-izydor.pl"
+      }
+  ],
+  "esmodules": ["translation-module.js"],
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13"
+  },
+  "url": "https://github.com/DawidIzydor/Foundry-Translation"
+}
