@@ -1,4 +1,6 @@
-# 🈺 Foundry VTT Journal Translator
+# Foundry VTT Journal Translator
+![Tests](https://img.shields.io/github/actions/workflow/status/DawidIzydor/Foundry-Translation/test.yml?branch=main) ![Version](https://img.shields.io/github/v/release/DawidIzydor/Foundry-Translation) ![License](https://img.shields.io/github/license/DawidIzydor/Foundry-Translation)
+
 
 **Journal Translator** is a Foundry VTT module that adds a `Translate` option to journal entries. It sends the journal content to the OpenAI API and returns a translated version, with options to either:
 
@@ -15,7 +17,7 @@ Check my blog for an article in polish about this module: https://blog.dawid-izy
 
 ---
 
-## ✨ Features
+## Features
 
 - Adds "Translate" to the journal context menu
 - Uses OpenAI's Chat Completions API (via GPT-4o)
@@ -25,7 +27,7 @@ Check my blog for an article in polish about this module: https://blog.dawid-izy
 
 ---
 
-## ⚙️ Setup
+## Setup
 
 ### 1. Install the Module
 
@@ -46,7 +48,7 @@ Go to **Settings → Configure Settings → Module Settings**:
 
 ---
 
-## 🧠 How It Works
+## How It Works
 
 Right-click any journal entry and select **Translate**. The module will:
 
@@ -57,7 +59,7 @@ Right-click any journal entry and select **Translate**. The module will:
 
 ---
 
-## 📦 Translation Modes
+## Translation Modes
 
 - **New**: Creates a new journal entry named `"[Original Name] (Translated)"`
 - **Prepend**: Adds the translation before the original content in the same page
