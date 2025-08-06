@@ -27,15 +27,38 @@ jobs:
       - name: Create zip archive
         run: |
           zip -r module.zip . -x "*.git*" ".github/*"
+
       - name: Extract version number
-        id: version
+        id: version # The ID is "version"
         run: echo "version=${GITHUB_REF_NAME#release/}" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ github.ref_name }}
+          tag: "v${{ steps.version.outputs.version }}"
           name: "${{ steps.version.outputs.version }}"
           body: "Automated release from branch creation"
-          artifacts: "module.zip" 
+          artifacts: "module.zip"
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release to Foundry VTT
+        run: |
+          # Use the correct step ID: "version"
+          VERSION="${{ steps.version.outputs.version }}"
+          curl -X POST https://foundryvtt.com/_api/packages/release_version/ \
+            -H "Content-Type: application/json" \
+            -H "Authorization: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}" \
+            -d "{
+              \"id\": \"journal-translator\",
+              \"release\": {
+                \"version\": \"${VERSION}\",
+                \"manifest\": \"https://github.com/DawidIzydor/Foundry-Translation/releases/download/v${VERSION}/module.json\",
+                \"notes\": \"https://github.com/DawidIzydor/Foundry-Translation/releases/tag/v${VERSION}\",
+                \"compatibility\": {
+                  \"minimum\": \"13\",
+                  \"verified\": \"13\",
+                  \"maximum\": \"\"
+                }
+              }
+            }"
