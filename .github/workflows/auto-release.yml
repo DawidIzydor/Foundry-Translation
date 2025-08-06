@@ -5,6 +5,9 @@ on:
     branches:
       - 'release/**'
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -16,7 +19,7 @@ jobs:
       - name: Replace tokens in module.json
         uses: cschleiden/replace-tokens@v1
         with:
-          files: './/module.json'
+          files: './module.json'
         env:
           MANIFEST: https://github.com/${{ github.repository }}/releases/latest/download/module.json
           DOWNLOAD: https://github.com/${{ github.repository }}/archive/${{ github.ref_name }}.zip
@@ -31,6 +34,6 @@ jobs:
           tag: ${{ github.ref_name }}
           name: "Release ${{ github.ref_name }}"
           body: "Automated release from branch creation"
-          artifacts: "module.zip,src/module.json"  # include modified module.json
+          artifacts: "module.zip" 
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
