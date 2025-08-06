@@ -27,12 +27,14 @@ jobs:
       - name: Create zip archive
         run: |
           zip -r module.zip . -x "*.git*" ".github/*"
-
+      - name: Extract version number
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#release/}" >> $GITHUB_OUTPUT
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.ref_name }}
-          name: "Release ${{ github.ref_name }}"
+          name: "${{ steps.version.outputs.version }}"
           body: "Automated release from branch creation"
           artifacts: "module.zip" 
           allowUpdates: true
