@@ -10,6 +10,9 @@ Supports HTML preservation and uses OpenAI's batch processing for efficient hand
 
 Check my blog for an article in polish about this module: https://blog.dawid-izydor.pl/it/moj-pierwszy-modul-do-foundry-vtt-tlumaczenie-przygod-jednym-kliknieciem/
 
+<img width="460" height="373" alt="obraz" src="https://github.com/user-attachments/assets/ffce6622-0753-4f55-9c70-78879c25dca5" />
+
+
 ---
 
 ## ✨ Features
@@ -38,6 +41,8 @@ Go to **Settings → Configure Settings → Module Settings**:
 | `OpenAI API Key`     | Your OpenAI API key. Required. |
 | `Custom Prompt`      | Prompt sent to OpenAI (e.g., `"Translate to Polish."`). System prompt already contains information about preserving HTML so this is mostly to select your language. |
 | `Translation Mode`   | Choose between `Create New` - creates a new Journal with the translated text, `Prepend` - prepends each page with the translated text, leaving the original at the bottom, or `Replace` - replaces the original content with translation. This can lead to data loss as the original text is removed so use with caution. |
+
+<img width="960" height="451" alt="obraz-1" src="https://github.com/user-attachments/assets/2ec3921f-9708-4af8-a580-5f75fbb62ebd" />
 
 ---
 
