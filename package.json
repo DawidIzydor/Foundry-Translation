@@ -1,0 +1,27 @@
+{
+  "name": "foundry-translation",
+  "version": "1.0.0",
+  "description": "A Foundry VTT module to translate journal entries using the OpenAI API",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "test:ui": "vitest --ui"
+  },
+  "keywords": [
+    "foundry-vtt",
+    "translation",
+    "openai",
+    "tabletop",
+    "rpg"
+  ],
+  "author": "DawidIzydor",
+  "license": "GPL-3.0",
+  "devDependencies": {
+    "@vitest/ui": "^1.6.0",
+    "jsdom": "^24.1.0",
+    "vitest": "^1.6.0"
+  }
+}

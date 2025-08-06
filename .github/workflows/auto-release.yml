@@ -35,7 +35,7 @@ jobs:
 
       - name: Create zip archive
         run: |
-          zip -r module.zip . -x "*.git*" ".github/*"
+          zip -r module.zip main.js module.json LICENSE README.md src/
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
