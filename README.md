@@ -8,6 +8,8 @@
 
 Supports HTML preservation and uses OpenAI's batch processing for efficient handling of large journals.
 
+Check my blog for an article in polish about this module: https://blog.dawid-izydor.pl/it/moj-pierwszy-modul-do-foundry-vtt-tlumaczenie-przygod-jednym-kliknieciem/
+
 ---
 
 ## ✨ Features
