@@ -55,18 +55,20 @@ Hooks.on('init', () => {
  * Adds the "Translate" option to the journal entry context menu.
  * This hook is triggered when the context menu for a journal entry is about to be displayed.
  */
-Hooks.on('getJournalEntryContextOptions', (document, options) => {
+Hooks.on('getJournalEntryContextOptions', (application, options) => {
     // Add the "Translate" option to the context menu.
     options.push({
         name: "Translate",
         icon: '<i class="fas fa-language"></i>',
-        callback: () => {
+        callback: (clickedElement) => {
             Dialog.confirm({
                 title: "Translate Journal Entry",
                 content: "<p>This translation may take several minutes depending on the journal size and OpenAI API speed. Do you want to continue?</p>",
                 yes: async () => {
-                    if (document) {
-                        let journal = game.journal.get($(document)[0].options.collection._source[0]._id);
+                    const journalId = clickedElement.dataset.entryId || clickedElement.dataset.documentId;
+                    const journal = game.journal.get(journalId);
+                    if (journal) {
+                        ui.notifications.info(`Translating journal entry: ${journal.name}`);
                         translateJournal(journal);
                     } else {
                         ui.notifications.error(`Could not process the selected journal entry.`);
@@ -79,23 +81,6 @@ Hooks.on('getJournalEntryContextOptions', (document, options) => {
     });
 });
 
-/**
- * Translates the content of a single journal page.
-    * @param {JournalEntryPage} page - The journal page to translate.
-    * @return {Promise<string>} - The translated content of the page.
- */
-
-async function translateJournalPage(page){
-
-    let originalContent = page.text && page.text.content ? page.text.content : "";
-
-    if (!originalContent) {
-        ui.notifications.warn(`Journal Page "${page.name}" is empty and cannot be translated.`);
-        return "";
-    }
-
-    return callOpenAI(originalContent);
-}
 
 /**
  * Sends multiple journal contents to the OpenAI Batch API for translation.
@@ -167,7 +152,7 @@ async function callOpenAIBatch(textsToTranslate) {
             body: JSON.stringify({
                 input_file_id: fileId,
                 endpoint: "/v1/chat/completions",
-                completion_window: "1h" // The job must complete within 1 hour.
+                completion_window: "24h" // We must set it to 24h because of OpenAI limitations. The script doesn't wait for more than 1 hour though.
             })
         });
 
