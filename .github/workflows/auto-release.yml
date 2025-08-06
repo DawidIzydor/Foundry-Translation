@@ -38,7 +38,7 @@ jobs:
           tag: "v${{ steps.version.outputs.version }}"
           name: "${{ steps.version.outputs.version }}"
           body: "Automated release from branch creation"
-          artifacts: "module.zip"
+          artifacts: "module.zip, module.json"
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
