@@ -61,4 +61,5 @@ Right-click any journal entry and select **Translate**. The module will:
 
 - **New**: Creates a new journal entry named `"[Original Name] (Translated)"`
 - **Prepend**: Adds the translation before the original content in the same page
+- **Append**: Adds the translation after the original content in the same page
 - **Replace**: Replaces the original content entirely
