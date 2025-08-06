@@ -95,34 +95,58 @@ async function callOpenAIBatch(textsToTranslate) {
         ui.notifications.error("OpenAI API Key is missing. Please enter your API key in the module settings.");
         return [];
     }
-    const customPrompt = game.settings.get(MODULE_ID, "customPrompt");
 
-    // 1. Prepare the content for the batch file.
-    // Each line in the file must be a JSON object representing a single API request.
-    const batchRequests = textsToTranslate.map((text, index) => ({
-        custom_id: `request-${index}`, // A unique ID to map requests to results.
-        method: "POST",
-        url: "/v1/chat/completions",
-        body: {
-            model: "gpt-4o",
-            messages: [
-                {
-                    role: "system",
-                    content: "You are a helpful assistant that translates text found inside journal entries for a tabletop roleplaying game. You should preserve the original HTML formatting (headings, paragraphs, lists, bold, italics, classes etc.) in your translation as well as any tags starting with @ such as @Check."
-                },
-                {
-                    role: "user",
-                    content: `${customPrompt}\n\n---\n\n${text}`
-                }
-            ]
-        }
-    }));
-
-    // Convert each request object into a JSON string and join them with newlines.
-    const batchFileContent = batchRequests.map(JSON.stringify).join("\n");
-    const batchFile = new File([batchFileContent], "batch.jsonl", { type: "application/jsonlines" });
     try {
-        // 2. Upload the batch file to OpenAI.
+        const batchFile = PrepareBatch();
+
+        const fileUploadResponse = await UploadBatchFile(batchFile);
+        const { id: fileId } = await fileUploadResponse.json();
+        console.log("Journal Translator | Batch file uploaded. File ID:", fileId);
+
+        const batchJob = await CreateBatchJob(fileId);
+        const completedBatch = await WaitForBatchCompletion(batchJob);
+        const resultsResponse = await RetrieveBatchResponse(completedBatch);
+
+        const translationsMap = await ProcessResults(resultsResponse);
+        const finalTranslations = AssembleFinalResults(translationsMap);
+        
+        ui.notifications.info("All translations completed successfully!");
+        return finalTranslations;
+
+    } catch (error) {
+        console.error("Journal Translator | A critical error occurred during batch translation:", error);
+        ui.notifications.error(`Batch translation failed: ${error.message}`);
+        return []; // Return an empty array on failure to prevent downstream errors.
+    }
+
+    function PrepareBatch() {
+        const customPrompt = game.settings.get(MODULE_ID, "customPrompt");
+        const batchRequests = textsToTranslate.map((text, index) => ({
+            custom_id: `request-${index}`, // A unique ID to map requests to results.
+            method: "POST",
+            url: "/v1/chat/completions",
+            body: {
+                model: "gpt-4o",
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are a helpful assistant that translates text found inside journal entries for a tabletop roleplaying game. You should preserve the original HTML formatting (headings, paragraphs, lists, bold, italics, classes etc.) in your translation as well as any tags starting with @ such as @Check."
+                    },
+                    {
+                        role: "user",
+                        content: `${customPrompt}\n\n---\n\n${text}`
+                    }
+                ]
+            }
+        }));
+
+        // Convert each request object into a JSON string and join them with newlines.
+        const batchFileContent = batchRequests.map(JSON.stringify).join("\n");
+        const batchFile = new File([batchFileContent], "batch.jsonl", { type: "application/jsonlines" });
+        return batchFile;
+    }
+
+    async function UploadBatchFile(batchFile) {
         ui.notifications.info("Uploading translation batch file...");
         const formData = new FormData();
         formData.append("purpose", "batch");
@@ -138,10 +162,10 @@ async function callOpenAIBatch(textsToTranslate) {
             const errorData = await fileUploadResponse.json();
             throw new Error(`File Upload Failed: ${errorData.error.message}`);
         }
-        const { id: fileId } = await fileUploadResponse.json();
-        console.log("Journal Translator | Batch file uploaded. File ID:", fileId);
+        return fileUploadResponse;
+    }
 
-        // 3. Create the batch job using the uploaded file's ID.
+    async function CreateBatchJob(fileId) {
         ui.notifications.info("Creating translation batch job...");
         const createBatchResponse = await fetch("https://api.openai.com/v1/batches", {
             method: "POST",
@@ -162,18 +186,22 @@ async function callOpenAIBatch(textsToTranslate) {
         }
         const batchJob = await createBatchResponse.json();
         console.log("Journal Translator | Batch job created. Batch ID:", batchJob.id);
+        return batchJob;
+    }
 
-        // 4. Poll for the batch job's completion.
+    async function WaitForBatchCompletion(batchJob) {
         ui.notifications.info("Processing translations... This may take a few minutes up to an hour.");
         const completedBatch = await pollBatchStatus(batchJob.id, apiKey);
 
         if (completedBatch.status !== 'completed') {
             ui.notifications.error(`Batch job failed with status: ${completedBatch.status}`);
-        }else{
+        } else {
             ui.notifications.info(`Batch job completed successfully!`);
         }
+        return completedBatch;
+    }
 
-        // 5. Retrieve the results file content.
+    async function RetrieveBatchResponse(completedBatch) {
         ui.notifications.info("Downloading translated content...");
         const resultsFileId = completedBatch.output_file_id;
         const resultsResponse = await fetch(`https://api.openai.com/v1/files/${resultsFileId}/content`, {
@@ -184,8 +212,10 @@ async function callOpenAIBatch(textsToTranslate) {
             const errorData = await resultsResponse.json();
             throw new Error(`Failed to download results: ${errorData.error.message}`);
         }
+        return resultsResponse;
+    }
 
-        // 6. Process the results.
+    async function ProcessResults(resultsResponse) {
         const resultsContent = await resultsResponse.text();
         const resultsLines = resultsContent.trim().split("\n");
         const translationsMap = new Map();
@@ -195,14 +225,16 @@ async function callOpenAIBatch(textsToTranslate) {
             const customId = result.custom_id;
             // Check for errors in the individual request within the batch.
             if (result.response.body.error) {
-                 console.error(`Journal Translator | Error in request ${customId}:`, result.response.body.error.message);
-                 continue; // Skip this failed result.
+                console.error(`Journal Translator | Error in request ${customId}:`, result.response.body.error.message);
+                continue; // Skip this failed result.
             }
             const translatedText = result.response.body.choices[0].message.content;
             translationsMap.set(customId, translatedText);
         }
+        return translationsMap;
+    }
 
-        // 7. Assemble the final results in their original order using the custom_id.
+    function AssembleFinalResults(translationsMap) {
         const finalTranslations = [];
         for (let i = 0; i < textsToTranslate.length; i++) {
             const customId = `request-${i}`;
@@ -210,18 +242,11 @@ async function callOpenAIBatch(textsToTranslate) {
                 finalTranslations.push(translationsMap.get(customId));
             } else {
                 // If a specific translation failed, push an empty string to maintain order.
-                finalTranslations.push(""); 
+                finalTranslations.push("");
                 console.warn(`Journal Translator | No result found for ${customId}.`);
             }
         }
-        
-        ui.notifications.info("All translations completed successfully!");
         return finalTranslations;
-
-    } catch (error) {
-        console.error("Journal Translator | A critical error occurred during batch translation:", error);
-        ui.notifications.error(`Batch translation failed: ${error.message}`);
-        return []; // Return an empty array on failure to prevent downstream errors.
     }
 }
 
