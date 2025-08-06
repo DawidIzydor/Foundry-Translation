@@ -49,16 +49,19 @@ export async function callOpenAIBatch(textsToTranslate) {
  */
 function prepareBatch(textsToTranslate) {
     const customPrompt = game.settings.get(MODULE_ID, "customPrompt");
+    const modelVersion = game.settings.get(MODULE_ID, "modelVersion");
+    const systemPrompt = game.settings.get(MODULE_ID, "systemPrompt");
+    
     const batchRequests = textsToTranslate.map((text, index) => ({
         custom_id: `request-${index}`, // A unique ID to map requests to results.
         method: "POST",
         url: "/v1/chat/completions",
         body: {
-            model: "gpt-4o",
+            model: modelVersion,
             messages: [
                 {
                     role: "system",
-                    content: "You are a helpful assistant that translates text found inside journal entries for a tabletop roleplaying game. You should preserve the original HTML formatting (headings, paragraphs, lists, bold, italics, classes etc.) in your translation as well as any tags starting with @ such as @Check."
+                    content: systemPrompt
                 },
                 {
                     role: "user",
@@ -219,8 +222,8 @@ function assembleFinalResults(translationsMap, originalLength) {
  * @returns {Promise<object>} The final batch job object from the API.
  */
 async function pollBatchStatus(batchId, apiKey) {
-    const delay = 30000; // Poll every 30 seconds.
-    const maxAttempts = 120; // Set a timeout of 60 minutes (120 * 30s).
+    const pollingDelay = game.settings.get(MODULE_ID, "pollingDelay") * 1000; // Convert seconds to milliseconds
+    const maxAttempts = game.settings.get(MODULE_ID, "maxPollingAttempts");
 
     for (let attempts = 0; attempts < maxAttempts; attempts++) {
         const response = await fetch(`https://api.openai.com/v1/batches/${batchId}`, {
@@ -241,12 +244,21 @@ async function pollBatchStatus(batchId, apiKey) {
             return batchStatus;
         }
 
-        ui.notifications.info(`Batch job is still processing... (${batchStatus.status})`);
+        // Show progress if request counts are available
+        let progressMessage = `Batch job is still processing... (${batchStatus.status})`;
+        if (batchStatus.request_counts) {
+            const { completed = 0, total = 0 } = batchStatus.request_counts;
+            if (total > 0) {
+                progressMessage = `Batch job is still processing... (${completed}/${total} requests completed)`;
+            }
+        }
+        ui.notifications.info(progressMessage);
 
         // Wait before the next poll.
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise(resolve => setTimeout(resolve, pollingDelay));
     }
     
     // If the loop finishes without the job completing, throw a timeout error.
-    throw new Error("Batch job timed out after 10 minutes.");
+    const timeoutMinutes = Math.round((maxAttempts * pollingDelay) / 60000);
+    throw new Error(`Batch job timed out after ${timeoutMinutes} minutes.`);
 }
