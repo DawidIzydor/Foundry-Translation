@@ -1,0 +1,36 @@
+name: Auto Release on Branch Creation
+
+on:
+  create:
+    branches:
+      - 'release/**'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Replace tokens in module.json
+        uses: cschleiden/replace-tokens@v1
+        with:
+          files: './/module.json'
+        env:
+          MANIFEST: https://github.com/${{ github.repository }}/releases/latest/download/module.json
+          DOWNLOAD: https://github.com/${{ github.repository }}/archive/${{ github.ref_name }}.zip
+
+      - name: Create zip archive
+        run: |
+          zip -r module.zip . -x "*.git*" ".github/*"
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"
+          body: "Automated release from branch creation"
+          artifacts: "module.zip,src/module.json"  # include modified module.json
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
