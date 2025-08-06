@@ -24,13 +24,18 @@ jobs:
           MANIFEST: https://github.com/${{ github.repository }}/releases/latest/download/module.json
           DOWNLOAD: https://github.com/${{ github.repository }}/archive/${{ github.ref_name }}.zip
 
+      - name: Extract version number
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#release/}" >> $GITHUB_OUTPUT
+
+      - name: Update version in module.json
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i 's/"version": "[^"]*"/"version": "'${VERSION}'"/' module.json
+
       - name: Create zip archive
         run: |
           zip -r module.zip . -x "*.git*" ".github/*"
-
-      - name: Extract version number
-        id: version # The ID is "version"
-        run: echo "version=${GITHUB_REF_NAME#release/}" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
