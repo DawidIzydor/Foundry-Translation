@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createPageUpdates, createTranslatedPagesData } from '../src/utils.js';
+import { createPageUpdates, createTranslatedPagesData, showPageSelectionDialog } from '../src/utils.js';
 
 describe('utils.js', () => {
   beforeEach(() => {
@@ -306,6 +306,80 @@ describe('utils.js', () => {
           user2: 2
         }
       });
+    });
+  });
+
+  describe('showPageSelectionDialog', () => {
+    let mockJournal;
+    let mockDialog;
+
+    beforeEach(() => {
+      mockJournal = {
+        name: 'Test Journal',
+        pages: [
+          {
+            id: 'page1',
+            name: 'Page 1',
+            text: { content: 'Content for page 1' }
+          },
+          {
+            id: 'page2',
+            name: 'Page 2', 
+            text: { content: 'Content for page 2' }
+          },
+          {
+            id: 'page3',
+            name: 'Page 3',
+            text: null // Page without content
+          }
+        ]
+      };
+
+      // Mock Dialog constructor
+      mockDialog = {
+        render: vi.fn()
+      };
+      global.Dialog = vi.fn().mockImplementation(() => mockDialog);
+
+      // Mock ui.notifications
+      global.ui = {
+        notifications: {
+          warn: vi.fn()
+        }
+      };
+    });
+
+    it('should warn and return empty array when journal has no pages with content', async () => {
+      mockJournal.pages = [
+        { id: 'page1', name: 'Page 1', text: null },
+        { id: 'page2', name: 'Page 2', text: { content: '' } }
+      ];
+
+      const result = await showPageSelectionDialog(mockJournal);
+
+      expect(ui.notifications.warn).toHaveBeenCalledWith('No pages with content found in "Test Journal".');
+      expect(result).toEqual([]);
+      expect(global.Dialog).not.toHaveBeenCalled();
+    });
+
+    it('should create dialog with correct pages and configuration', () => {
+      showPageSelectionDialog(mockJournal);
+
+      expect(global.Dialog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Select Pages to Translate - Test Journal',
+          content: expect.stringContaining('Select which pages you want to translate:'),
+          buttons: expect.objectContaining({
+            translate: expect.objectContaining({
+              label: 'Translate Selected'
+            }),
+            cancel: expect.objectContaining({
+              label: 'Cancel'
+            })
+          })
+        })
+      );
+      expect(mockDialog.render).toHaveBeenCalledWith(true);
     });
   });
 });

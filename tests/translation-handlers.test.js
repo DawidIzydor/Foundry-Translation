@@ -79,11 +79,34 @@ describe('translation-handlers.js', () => {
       
       await translateJournal(mockJournal);
 
-      expect(ui.notifications.warn).toHaveBeenCalledWith('No pages with content found in "Test Journal".');
+      expect(ui.notifications.warn).toHaveBeenCalledWith('No pages selected for translation in "Test Journal".');
       expect(callOpenAIBatch).not.toHaveBeenCalled();
     });
 
-    it('should filter out pages without text content', async () => {
+    it('should warn when no pages are selected for translation', async () => {
+      await translateJournal(mockJournal, []);
+
+      expect(ui.notifications.warn).toHaveBeenCalledWith('No pages selected for translation in "Test Journal".');
+      expect(callOpenAIBatch).not.toHaveBeenCalled();
+    });
+
+    it('should use selected pages when provided', async () => {
+      const selectedPages = [mockJournal.pages[0]]; // Only first page
+      callOpenAIBatch.mockResolvedValue(['Translated content 1']);
+      createTranslatedPagesData.mockReturnValue([
+        { name: 'Page 1 (Translated)', text: { content: 'Translated content 1' } }
+      ]);
+
+      await translateJournal(mockJournal, selectedPages);
+
+      expect(callOpenAIBatch).toHaveBeenCalledWith(['Content 1']);
+      expect(createTranslatedPagesData).toHaveBeenCalledWith(
+        selectedPages,
+        ['Translated content 1']
+      );
+    });
+
+    it('should filter out pages without text content when no selection provided', async () => {
       mockJournal.pages = [
         { id: 'page1', name: 'Page 1', text: { content: 'Content 1' } },
         { id: 'page2', name: 'Page 2', text: null },

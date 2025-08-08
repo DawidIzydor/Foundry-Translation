@@ -7,19 +7,20 @@ import { callOpenAIBatch } from './openai-batch.js';
 import { createPageUpdates, createTranslatedPagesData } from './utils.js';
 
 /**
- * Translates the entire journal entry using batch processing.
+ * Translates selected pages from a journal entry using batch processing.
  * @param {JournalEntry} journal - The journal entry to translate.
+ * @param {Array} selectedPages - Array of selected page objects to translate. If not provided, all pages with content will be used.
  * @return {Promise<void>} - Resolves when the translation is complete.
  */
-export async function translateJournal(journal) {
+export async function translateJournal(journal, selectedPages = null) {
     const translationMode = game.settings.get(MODULE_ID, "translationMode");
     
-    // Collect all page contents
-    const pagesToTranslate = journal.pages.filter(page => page.text && page.text.content);
+    // Use selected pages or default to all pages with content
+    const pagesToTranslate = selectedPages || journal.pages.filter(page => page.text && page.text.content);
     const pageContents = pagesToTranslate.map(page => page.text.content);
 
     if (pageContents.length === 0) {
-        ui.notifications.warn(`No pages with content found in "${journal.name}".`);
+        ui.notifications.warn(`No pages selected for translation in "${journal.name}".`);
         return;
     }
 
