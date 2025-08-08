@@ -13,6 +13,7 @@ Supports HTML preservation and uses OpenAI's batch processing for efficient hand
 Check my blog for an article in polish about this module: https://blog.dawid-izydor.pl/it/moj-pierwszy-modul-do-foundry-vtt-tlumaczenie-przygod-jednym-kliknieciem/
 
 <img width="460" height="373" alt="obraz" src="https://github.com/user-attachments/assets/ffce6622-0753-4f55-9c70-78879c25dca5" />
+<img width="708" height="486" alt="obraz" src="https://github.com/user-attachments/assets/141c27ab-f5bc-4a50-ab85-0f3ecdb69ca2" />
 
 
 ---
@@ -20,10 +21,9 @@ Check my blog for an article in polish about this module: https://blog.dawid-izy
 ## Features
 
 - Adds "Translate" to the journal context menu
-- Uses OpenAI's Chat Completions API (via GPT-4o)
-- Supports batch translation of multiple journal pages
+- Select which pages you want to translate
 - Preserves Foundry-specific HTML and tags (e.g. `@Check`)
-- Three translation modes: `new`, `prepend`, or `replace`
+- Different translation modes: `new`, `append`, `prepend`, or `replace`
 
 ---
 
