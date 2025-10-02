@@ -1,4 +1,5 @@
 /**
+
  * OpenAI Batch API functionality for the Journal Translator module.
  */
 
@@ -9,13 +10,15 @@ import { MODULE_ID } from './settings.js';
  * This involves uploading a file, creating a batch job, polling for its completion,
  * and then downloading and processing the results.
  * @param {string[]} textsToTranslate - Array of HTML contents of journal pages.
- * @return {Promise<string[]>} - An array of translated text strings in their original order.
+ * @param {Object} options - Optional configuration object.
+ * @param {Function} options.onBatchCreated - Callback function called with batchId when batch is created but before waiting for completion.
+ * @return {Promise<{batchId: string, translations: string[]}>} - An object containing the batch ID and translated text strings.
  */
-export async function callOpenAIBatch(textsToTranslate) {
+export async function callOpenAIBatch(textsToTranslate, options = {}) {
     const apiKey = game.settings.get(MODULE_ID, "apiKey");
     if (!apiKey || apiKey.trim() === "") {
         ui.notifications.error("OpenAI API Key is missing. Please enter your API key in the module settings.");
-        return [];
+        return { batchId: null, translations: [] };
     }
 
     try {
@@ -26,6 +29,12 @@ export async function callOpenAIBatch(textsToTranslate) {
         console.log("Journal Translator | Batch file uploaded. File ID:", fileId);
 
         const batchJob = await createBatchJob(fileId, apiKey);
+        
+        // Call the onBatchCreated callback if provided, after batch is created but before waiting for completion
+        if (options.onBatchCreated && typeof options.onBatchCreated === 'function') {
+            await options.onBatchCreated(batchJob.id);
+        }
+        
         const completedBatch = await waitForBatchCompletion(batchJob, apiKey);
         const resultsResponse = await retrieveBatchResponse(completedBatch, apiKey);
 
@@ -33,12 +42,12 @@ export async function callOpenAIBatch(textsToTranslate) {
         const finalTranslations = assembleFinalResults(translationsMap, textsToTranslate.length);
         
         ui.notifications.info("All translations completed successfully!");
-        return finalTranslations;
+        return { batchId: batchJob.id, translations: finalTranslations };
 
     } catch (error) {
         console.error("Journal Translator | A critical error occurred during batch translation:", error);
         ui.notifications.error(`Batch translation failed: ${error.message}`);
-        return []; // Return an empty array on failure to prevent downstream errors.
+        return { batchId: null, translations: [] }; // Return an empty result on failure to prevent downstream errors.
     }
 }
 
@@ -156,7 +165,7 @@ async function waitForBatchCompletion(batchJob, apiKey) {
  * @param {string} apiKey - The OpenAI API key.
  * @returns {Promise<Response>} The results response.
  */
-async function retrieveBatchResponse(completedBatch, apiKey) {
+export async function retrieveBatchResponse(completedBatch, apiKey) {
     ui.notifications.info("Downloading translated content...");
     const resultsFileId = completedBatch.output_file_id;
     const resultsResponse = await fetch(`https://api.openai.com/v1/files/${resultsFileId}/content`, {
@@ -175,7 +184,7 @@ async function retrieveBatchResponse(completedBatch, apiKey) {
  * @param {Response} resultsResponse - The results response.
  * @returns {Promise<Map>} A map of translations.
  */
-async function processResults(resultsResponse) {
+export async function processResults(resultsResponse) {
     const resultsContent = await resultsResponse.text();
     const resultsLines = resultsContent.trim().split("\n");
     const translationsMap = new Map();
@@ -200,7 +209,7 @@ async function processResults(resultsResponse) {
  * @param {number} originalLength - The original number of texts.
  * @returns {string[]} The final translations array.
  */
-function assembleFinalResults(translationsMap, originalLength) {
+export function assembleFinalResults(translationsMap, originalLength) {
     const finalTranslations = [];
     for (let i = 0; i < originalLength; i++) {
         const customId = `request-${i}`;
@@ -221,7 +230,7 @@ function assembleFinalResults(translationsMap, originalLength) {
  * @param {string} apiKey - The OpenAI API key.
  * @returns {Promise<object>} The final batch job object from the API.
  */
-async function pollBatchStatus(batchId, apiKey) {
+export async function pollBatchStatus(batchId, apiKey) {
     const pollingDelay = game.settings.get(MODULE_ID, "pollingDelay") * 1000; // Convert seconds to milliseconds
     const maxAttempts = game.settings.get(MODULE_ID, "maxPollingAttempts");
 

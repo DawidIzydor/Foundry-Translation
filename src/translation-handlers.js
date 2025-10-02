@@ -5,6 +5,8 @@
 import { MODULE_ID } from './settings.js';
 import { callOpenAIBatch } from './openai-batch.js';
 import { createPageUpdates, createTranslatedPagesData } from './utils.js';
+import { setTranslationStartedFlags, setTranslationCompletedFlags } from './translation-flags.js';
+import { addBatchToQueue, removeBatchFromQueue } from './batch-queue.js';
 
 /**
  * Translates selected pages from a journal entry using batch processing.
@@ -25,22 +27,35 @@ export async function translateJournal(journal, selectedPages = null) {
     }
 
     ui.notifications.info(`Translating ${pageContents.length} pages in batch...`);
-    const translatedContents = await callOpenAIBatch(pageContents);
+    
+    // Call OpenAI batch API and get both batch ID and translations
+    const { batchId, translations: translatedContents } = await callOpenAIBatch(pageContents, {
+        onBatchCreated: async (createdBatchId) => {
+            // Set initial flags on all pages being translated and add to queue immediately after batch creation
+            addBatchToQueue(createdBatchId);
+            
+            for (let i = 0; i < pagesToTranslate.length; i++) {
+                await setTranslationStartedFlags(pagesToTranslate[i], createdBatchId, i);
+            }
+            console.log(`Journal Translator | Set translation flags for ${pagesToTranslate.length} pages with batch ID: ${createdBatchId}`);
+        }
+    });
 
-    switch (translationMode) {
-        case 'append':
-            await handleAppendMode(journal, pagesToTranslate, translatedContents);
-            break;
-        case 'prepend':
-            await handlePrependMode(journal, pagesToTranslate, translatedContents);
-            break;
-        case 'replace':
-            await handleReplaceMode(journal, pagesToTranslate, translatedContents);
-            break;
-        case 'new':
-        default:
-            await handleNewJournalMode(journal, pagesToTranslate, translatedContents);
-            break;
+    // If we didn't get any translations, stop here
+    if (!translatedContents || translatedContents.length === 0) {
+        ui.notifications.warn(`No translations received for "${journal.name}".`);
+        if (batchId) {
+            removeBatchFromQueue(batchId);
+        }
+        return;
+    }
+
+    await applyTranslationsWithMode(journal, pagesToTranslate, translatedContents, translationMode);
+    await completeTranslation(pagesToTranslate);
+    
+    // Remove batch from queue when translation is complete
+    if (batchId) {
+        removeBatchFromQueue(batchId);
     }
 }
 
@@ -58,7 +73,7 @@ export async function translateJournal(journal, selectedPages = null) {
  *              separated by a horizontal rule. Updates the journal's embedded documents
  *              and displays appropriate notification messages based on the result.
  */
-async function handleAppendMode(journal, pagesToTranslate, translatedContents) {
+export async function handleAppendMode(journal, pagesToTranslate, translatedContents) {
     const pageUpdates = createPageUpdates(pagesToTranslate, translatedContents, (original, translated) => 
         original + '<hr style="margin: 1em 0;">' + translated
     );
@@ -108,7 +123,7 @@ async function handlePrependMode(journal, pagesToTranslate, translatedContents) 
  * @returns {Promise<void>} Promise that resolves when the replacement operation is complete
  * @description Creates page updates by replacing original content with translations, then updates the journal's embedded documents. Shows success notification if pages were updated, or warning if no updates occurred.
  */
-async function handleReplaceMode(journal, pagesToTranslate, translatedContents) {
+export async function handleReplaceMode(journal, pagesToTranslate, translatedContents) {
     const pageUpdates = createPageUpdates(pagesToTranslate, translatedContents, (original, translated) => 
         translated
     );
@@ -133,7 +148,7 @@ async function handleReplaceMode(journal, pagesToTranslate, translatedContents) 
  * @returns {Promise<void>} Promise that resolves when the new journal is created or warns if no translations were made
  * @throws {Error} Throws an error if journal creation fails
  */
-async function handleNewJournalMode(journal, pagesToTranslate, translatedContents) {
+export async function handleNewJournalMode(journal, pagesToTranslate, translatedContents) {
     const translatedPagesData = createTranslatedPagesData(pagesToTranslate, translatedContents);
     
     if (translatedPagesData.length > 0) {
@@ -148,5 +163,40 @@ async function handleNewJournalMode(journal, pagesToTranslate, translatedContent
         ui.notifications.info(`Successfully created a new journal "${translatedJournalName}" with translations from "${journal.name}".`);
     } else {
         ui.notifications.warn(`No pages were translated for "${journal.name}".`);
+    }
+}
+
+/**
+ * Applies translations using the appropriate handler based on translation mode
+ * @param {JournalEntry} journal - The journal containing the pages
+ * @param {Array} pages - The pages to apply translations to
+ * @param {Array} translations - The translated content
+ * @param {string} mode - The translation mode (append, prepend, replace, new)
+ */
+export async function applyTranslationsWithMode(journal, pages, translations, mode) {
+    switch (mode) {
+        case 'append':
+            await handleAppendMode(journal, pages, translations);
+            break;
+        case 'prepend':
+            await handlePrependMode(journal, pages, translations);
+            break;
+        case 'replace':
+            await handleReplaceMode(journal, pages, translations);
+            break;
+        case 'new':
+        default:
+            await handleNewJournalMode(journal, pages, translations);
+            break;
+    }
+}
+
+/**
+ * Completes the translation process by marking pages as completed
+ * @param {Array} pages - The pages to mark as completed
+ */
+export async function completeTranslation(pages) {
+    for (const page of pages) {
+        await setTranslationCompletedFlags(page);
     }
 }
