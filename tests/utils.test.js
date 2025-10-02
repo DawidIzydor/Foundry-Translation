@@ -9,6 +9,13 @@ describe('utils.js', () => {
   beforeEach(() => {
     // Reset mocks before each test
     vi.clearAllMocks();
+    
+    // Mock global UI
+    global.ui = {
+      notifications: {
+        warn: vi.fn()
+      }
+    };
   });
 
   describe('createPageUpdates', () => {
@@ -17,12 +24,20 @@ describe('utils.js', () => {
         {
           id: 'page1',
           name: 'Page 1',
-          text: { content: 'Original content 1' }
+          text: { content: 'Original content 1' },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 0;
+            return false;
+          })
         },
         {
           id: 'page2', 
           name: 'Page 2',
-          text: { content: 'Original content 2' }
+          text: { content: 'Original content 2' },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 1;
+            return false;
+          })
         }
       ];
 
@@ -51,12 +66,20 @@ describe('utils.js', () => {
         {
           id: 'page1',
           name: 'Page 1',
-          text: { content: 'Original content 1' }
+          text: { content: 'Original content 1' },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 0;
+            return false;
+          })
         },
         {
           id: 'page2',
           name: 'Page 2', 
-          text: { content: 'Original content 2' }
+          text: { content: 'Original content 2' },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 1;
+            return false;
+          })
         }
       ];
 
@@ -74,7 +97,7 @@ describe('utils.js', () => {
         _id: 'page1',
         'text.content': 'Translated content 1'
       });
-      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Page 2". Skipping this page.');
+      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Page 2" (batch index 1). Skipping this page.');
     });
 
     it('should skip pages with null translations', () => {
@@ -82,7 +105,11 @@ describe('utils.js', () => {
         {
           id: 'page1',
           name: 'Page 1',
-          text: { content: 'Original content 1' }
+          text: { content: 'Original content 1' },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 0;
+            return false;
+          })
         }
       ];
 
@@ -92,7 +119,7 @@ describe('utils.js', () => {
       const result = createPageUpdates(pagesToTranslate, translatedContents, contentTransformer);
 
       expect(result).toHaveLength(0);
-      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Page 1". Skipping this page.');
+      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Page 1" (batch index 0). Skipping this page.');
     });
 
     it('should skip pages with whitespace-only translations', () => {
@@ -100,7 +127,11 @@ describe('utils.js', () => {
         {
           id: 'page1',
           name: 'Page 1',
-          text: { content: 'Original content 1' }
+          text: { content: 'Original content 1' },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 0;
+            return false;
+          })
         }
       ];
 
@@ -110,7 +141,7 @@ describe('utils.js', () => {
       const result = createPageUpdates(pagesToTranslate, translatedContents, contentTransformer);
 
       expect(result).toHaveLength(0);
-      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Page 1". Skipping this page.');
+      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Page 1" (batch index 0). Skipping this page.');
     });
 
     it('should handle pages with empty original content', () => {
@@ -118,7 +149,11 @@ describe('utils.js', () => {
         {
           id: 'page1',
           name: 'Page 1',
-          text: { content: null }
+          text: { content: null },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 0;
+            return false;
+          })
         }
       ];
 
@@ -139,7 +174,11 @@ describe('utils.js', () => {
         {
           id: 'page1',
           name: 'Page 1',
-          text: { content: 'Original content' }
+          text: { content: 'Original content' },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 0;
+            return false;
+          })
         }
       ];
 
@@ -167,7 +206,11 @@ describe('utils.js', () => {
             format: 'html'
           },
           sort: 0,
-          ownership: { default: 0 }
+          ownership: { default: 0 },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 0;
+            return false;
+          })
         },
         {
           name: 'Page 2',
@@ -177,7 +220,11 @@ describe('utils.js', () => {
             format: 'html'
           },
           sort: 100,
-          ownership: { default: 0 }
+          ownership: { default: 0 },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 1;
+            return false;
+          })
         }
       ];
 
@@ -221,7 +268,11 @@ describe('utils.js', () => {
             format: 'html'
           },
           sort: 0,
-          ownership: { default: 0 }
+          ownership: { default: 0 },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 0;
+            return false;
+          })
         },
         {
           name: 'Page 2',
@@ -231,7 +282,11 @@ describe('utils.js', () => {
             format: 'html'
           },
           sort: 100,
-          ownership: { default: 0 }
+          ownership: { default: 0 },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 1;
+            return false;
+          })
         }
       ];
 
@@ -244,7 +299,7 @@ describe('utils.js', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].name).toBe('Page 1 (Translated)');
-      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Page 2". Skipping this page.');
+      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Page 2" (batch index 1). Skipping this page.');
     });
 
     it('should handle null and undefined translations', () => {
@@ -257,7 +312,11 @@ describe('utils.js', () => {
             format: 'html'
           },
           sort: 0,
-          ownership: { default: 0 }
+          ownership: { default: 0 },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 0;
+            return false;
+          })
         }
       ];
 
@@ -266,7 +325,7 @@ describe('utils.js', () => {
       const result = createTranslatedPagesData(pagesToTranslate, translatedContents);
 
       expect(result).toHaveLength(0);
-      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Page 1". Skipping this page.');
+      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Page 1" (batch index 0). Skipping this page.');
     });
 
     it('should preserve all page properties correctly', () => {
@@ -283,7 +342,11 @@ describe('utils.js', () => {
             default: 0,
             user1: 3,
             user2: 2
-          }
+          },
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 0;
+            return false;
+          })
         }
       ];
 
@@ -320,17 +383,20 @@ describe('utils.js', () => {
           {
             id: 'page1',
             name: 'Page 1',
-            text: { content: 'Content for page 1' }
+            text: { content: 'Content for page 1' },
+            getFlag: vi.fn(() => false)
           },
           {
             id: 'page2',
             name: 'Page 2', 
-            text: { content: 'Content for page 2' }
+            text: { content: 'Content for page 2' },
+            getFlag: vi.fn(() => false)
           },
           {
             id: 'page3',
             name: 'Page 3',
-            text: null // Page without content
+            text: null, // Page without content
+            getFlag: vi.fn(() => false)
           }
         ]
       };
@@ -351,13 +417,13 @@ describe('utils.js', () => {
 
     it('should warn and return empty array when journal has no pages with content', async () => {
       mockJournal.pages = [
-        { id: 'page1', name: 'Page 1', text: null },
-        { id: 'page2', name: 'Page 2', text: { content: '' } }
+        { id: 'page1', name: 'Page 1', text: null, getFlag: vi.fn(() => false) },
+        { id: 'page2', name: 'Page 2', text: { content: '' }, getFlag: vi.fn(() => false) }
       ];
 
       const result = await showPageSelectionDialog(mockJournal);
 
-      expect(ui.notifications.warn).toHaveBeenCalledWith('No pages with content found in "Test Journal".');
+      expect(ui.notifications.warn).toHaveBeenCalledWith('No untranslated pages with content found in "Test Journal".');
       expect(result).toEqual([]);
       expect(global.Dialog).not.toHaveBeenCalled();
     });

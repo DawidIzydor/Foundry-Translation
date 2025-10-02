@@ -15,8 +15,20 @@ vi.mock('../src/utils.js', () => ({
   createTranslatedPagesData: vi.fn()
 }));
 
+vi.mock('../src/batch-queue.js', () => ({
+  addBatchToQueue: vi.fn(),
+  removeBatchFromQueue: vi.fn()
+}));
+
+vi.mock('../src/translation-flags.js', () => ({
+  setTranslationStartedFlags: vi.fn().mockResolvedValue(),
+  setTranslationCompletedFlags: vi.fn().mockResolvedValue()
+}));
+
 import { callOpenAIBatch } from '../src/openai-batch.js';
 import { createPageUpdates, createTranslatedPagesData } from '../src/utils.js';
+import { addBatchToQueue, removeBatchFromQueue } from '../src/batch-queue.js';
+import { setTranslationStartedFlags, setTranslationCompletedFlags } from '../src/translation-flags.js';
 
 describe('translation-handlers.js', () => {
   let mockJournal;
@@ -70,7 +82,10 @@ describe('translation-handlers.js', () => {
       return 'default-value';
     });
 
-    callOpenAIBatch.mockResolvedValue(['Translated content 1', 'Translated content 2']);
+    callOpenAIBatch.mockResolvedValue({ 
+      batchId: 'test-batch-123', 
+      translations: ['Translated content 1', 'Translated content 2'] 
+    });
   });
 
   describe('translateJournal', () => {
@@ -92,14 +107,19 @@ describe('translation-handlers.js', () => {
 
     it('should use selected pages when provided', async () => {
       const selectedPages = [mockJournal.pages[0]]; // Only first page
-      callOpenAIBatch.mockResolvedValue(['Translated content 1']);
+      callOpenAIBatch.mockResolvedValue({ 
+        batchId: 'test-batch-456', 
+        translations: ['Translated content 1'] 
+      });
       createTranslatedPagesData.mockReturnValue([
         { name: 'Page 1 (Translated)', text: { content: 'Translated content 1' } }
       ]);
 
       await translateJournal(mockJournal, selectedPages);
 
-      expect(callOpenAIBatch).toHaveBeenCalledWith(['Content 1']);
+      expect(callOpenAIBatch).toHaveBeenCalledWith(['Content 1'], expect.objectContaining({
+        onBatchCreated: expect.any(Function)
+      }));
       expect(createTranslatedPagesData).toHaveBeenCalledWith(
         selectedPages,
         ['Translated content 1']
@@ -114,7 +134,10 @@ describe('translation-handlers.js', () => {
         { id: 'page4', name: 'Page 4', text: { content: 'Content 4' } }
       ];
 
-      callOpenAIBatch.mockResolvedValue(['Translated 1', 'Translated 4']);
+      callOpenAIBatch.mockResolvedValue({ 
+        batchId: 'test-batch-789', 
+        translations: ['Translated 1', 'Translated 4'] 
+      });
       createTranslatedPagesData.mockReturnValue([
         { name: 'Page 1 (Translated)', text: { content: 'Translated 1' } },
         { name: 'Page 4 (Translated)', text: { content: 'Translated 4' } }
@@ -122,7 +145,9 @@ describe('translation-handlers.js', () => {
 
       await translateJournal(mockJournal);
 
-      expect(callOpenAIBatch).toHaveBeenCalledWith(['Content 1', 'Content 4']);
+      expect(callOpenAIBatch).toHaveBeenCalledWith(['Content 1', 'Content 4'], expect.objectContaining({
+        onBatchCreated: expect.any(Function)
+      }));
     });
 
     it('should handle new journal mode', async () => {
@@ -318,7 +343,81 @@ describe('translation-handlers.js', () => {
 
       await translateJournal(mockJournal);
 
-      expect(callOpenAIBatch).toHaveBeenCalledWith(['First content', 'Second content', 'Third content']);
+      expect(callOpenAIBatch).toHaveBeenCalledWith(['First content', 'Second content', 'Third content'], expect.objectContaining({
+        onBatchCreated: expect.any(Function)
+      }));
+    });
+
+    it('should properly handle batch queue operations and translation flags', async () => {
+      // Mock callOpenAIBatch to simulate the callback behavior
+      callOpenAIBatch.mockImplementation(async (texts, options) => {
+        // Simulate the callback being called during batch creation
+        if (options && options.onBatchCreated) {
+          await options.onBatchCreated('test-batch-callback-123');
+        }
+        return { 
+          batchId: 'test-batch-callback-123', 
+          translations: ['Translated content 1', 'Translated content 2'] 
+        };
+      });
+
+      createTranslatedPagesData.mockReturnValue([
+        { name: 'Page 1 (Translated)', text: { content: 'Translated content 1' } },
+        { name: 'Page 2 (Translated)', text: { content: 'Translated content 2' } }
+      ]);
+
+      await translateJournal(mockJournal);
+
+      // Verify batch queue operations
+      expect(addBatchToQueue).toHaveBeenCalledWith('test-batch-callback-123');
+      expect(removeBatchFromQueue).toHaveBeenCalledWith('test-batch-callback-123');
+
+      // Verify translation flags are set for each page
+      expect(setTranslationStartedFlags).toHaveBeenCalledTimes(2);
+      expect(setTranslationStartedFlags).toHaveBeenNthCalledWith(1, mockJournal.pages[0], 'test-batch-callback-123', 0);
+      expect(setTranslationStartedFlags).toHaveBeenNthCalledWith(2, mockJournal.pages[1], 'test-batch-callback-123', 1);
+
+      // Verify completion flags are set for each page
+      expect(setTranslationCompletedFlags).toHaveBeenCalledTimes(2);
+      expect(setTranslationCompletedFlags).toHaveBeenNthCalledWith(1, mockJournal.pages[0]);
+      expect(setTranslationCompletedFlags).toHaveBeenNthCalledWith(2, mockJournal.pages[1]);
+    });
+
+    it('should handle case when no batch ID is returned', async () => {
+      callOpenAIBatch.mockResolvedValue({ 
+        batchId: null, 
+        translations: [] 
+      });
+
+      await translateJournal(mockJournal);
+
+      // Verify batch queue operations are not called when no batch ID
+      expect(addBatchToQueue).not.toHaveBeenCalled();
+      expect(removeBatchFromQueue).not.toHaveBeenCalled();
+      expect(setTranslationStartedFlags).not.toHaveBeenCalled();
+
+      expect(ui.notifications.warn).toHaveBeenCalledWith('No translations received for "Test Journal".');
+    });
+
+    it('should still remove batch from queue even if translation fails', async () => {
+      callOpenAIBatch.mockImplementation(async (texts, options) => {
+        if (options && options.onBatchCreated) {
+          await options.onBatchCreated('test-batch-fail-123');
+        }
+        return { 
+          batchId: 'test-batch-fail-123', 
+          translations: ['Translated content'] 
+        };
+      });
+
+      // Mock translation application to fail
+      createTranslatedPagesData.mockReturnValue([]);
+
+      await translateJournal(mockJournal);
+
+      // Verify batch is still removed from queue even after failure
+      expect(addBatchToQueue).toHaveBeenCalledWith('test-batch-fail-123');
+      expect(removeBatchFromQueue).toHaveBeenCalledWith('test-batch-fail-123');
     });
   });
 });

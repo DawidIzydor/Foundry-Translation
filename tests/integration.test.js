@@ -48,7 +48,12 @@ describe('Integration Tests', () => {
             },
             type: 'text',
             sort: 0,
-            ownership: { default: 0 }
+            ownership: { default: 0 },
+            getFlag: vi.fn((moduleId, flagName) => {
+              if (flagName === 'translationBatchIndex') return 0;
+              return false;
+            }),
+            update: vi.fn()
           },
           {
             id: 'page2',
@@ -59,7 +64,12 @@ describe('Integration Tests', () => {
             },
             type: 'text',
             sort: 100,
-            ownership: { default: 0 }
+            ownership: { default: 0 },
+            getFlag: vi.fn((moduleId, flagName) => {
+              if (flagName === 'translationBatchIndex') return 1;
+              return false;
+            }),
+            update: vi.fn()
           }
         ],
         ownership: { default: 0 },
@@ -155,7 +165,12 @@ describe('Integration Tests', () => {
           {
             id: 'page1',
             name: 'Page 1',
-            text: { content: 'Original content' }
+            text: { content: 'Original content' },
+            getFlag: vi.fn((moduleId, flagName) => {
+              if (flagName === 'translationBatchIndex') return 0;
+              return false;
+            }),
+            update: vi.fn()
           }
         ],
         updateEmbeddedDocuments: vi.fn().mockResolvedValue(true)
@@ -204,7 +219,12 @@ describe('Integration Tests', () => {
 
       const mockJournal = {
         name: 'Test Journal',
-        pages: [{ id: 'page1', text: { content: 'Content' } }]
+        pages: [{ 
+          id: 'page1', 
+          text: { content: 'Content' }, 
+          getFlag: vi.fn(() => false),
+          update: vi.fn()
+        }]
       };
 
       await translateJournal(mockJournal);
@@ -216,7 +236,12 @@ describe('Integration Tests', () => {
     it('should handle OpenAI API errors gracefully', async () => {
       const mockJournal = {
         name: 'Test Journal',
-        pages: [{ id: 'page1', text: { content: 'Content' } }]
+        pages: [{ 
+          id: 'page1', 
+          text: { content: 'Content' }, 
+          getFlag: vi.fn(() => false),
+          update: vi.fn()
+        }]
       };
 
       // Mock API failure - Return response with ok: false but without json method for error
@@ -234,8 +259,26 @@ describe('Integration Tests', () => {
       const mockJournal = {
         name: 'Test Journal',
         pages: [
-          { id: 'page1', name: 'Page 1', text: { content: 'Content 1' } },
-          { id: 'page2', name: 'Page 2', text: { content: 'Content 2' } }
+          { 
+            id: 'page1', 
+            name: 'Page 1', 
+            text: { content: 'Content 1' },
+            getFlag: vi.fn((moduleId, flagName) => {
+              if (flagName === 'translationBatchIndex') return 0;
+              return false;
+            }),
+            update: vi.fn()
+          },
+          { 
+            id: 'page2', 
+            name: 'Page 2', 
+            text: { content: 'Content 2' },
+            getFlag: vi.fn((moduleId, flagName) => {
+              if (flagName === 'translationBatchIndex') return 1;
+              return false;
+            }),
+            update: vi.fn()
+          }
         ]
       };
 
@@ -274,16 +317,40 @@ describe('Integration Tests', () => {
       }));
       
       // Verify warning was shown for the failed translation
-      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Page 2". Skipping this page.');
+      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Page 2" (batch index 1). Skipping this page.');
     });
   });
 
   describe('Utils Functions Integration', () => {
     it('should handle edge cases in page processing', () => {
       const pages = [
-        { id: 'page1', name: 'Valid Page', text: { content: 'Valid content', format: 'html' }, sort: 0, ownership: {} },
-        { id: 'page2', name: 'Empty Page', text: { content: '', format: 'html' }, sort: 100, ownership: {} },
-        { id: 'page3', name: 'Null Content', text: { content: null, format: 'html' }, sort: 200, ownership: {} }
+        { 
+          id: 'page1', 
+          name: 'Valid Page', 
+          text: { content: 'Valid content', format: 'html' }, 
+          sort: 0, 
+          ownership: {},
+          getFlag: vi.fn((moduleId, flagName) => {
+            if (flagName === 'translationBatchIndex') return 0;
+            return false;
+          })
+        },
+        { 
+          id: 'page2', 
+          name: 'Empty Page', 
+          text: { content: '', format: 'html' }, 
+          sort: 100, 
+          ownership: {},
+          getFlag: vi.fn(() => false)
+        },
+        { 
+          id: 'page3', 
+          name: 'Null Content', 
+          text: { content: null, format: 'html' }, 
+          sort: 200, 
+          ownership: {},
+          getFlag: vi.fn(() => false)
+        }
       ];
 
       const translations = ['Translated valid content', '', null];
@@ -314,8 +381,8 @@ describe('Integration Tests', () => {
       });
 
       // Verify warnings were shown for invalid pages
-      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Empty Page". Skipping this page.');
-      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Null Content". Skipping this page.');
+      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Empty Page" (batch index false). Skipping this page.');
+      expect(ui.notifications.warn).toHaveBeenCalledWith('Translation returned empty for page "Null Content" (batch index false). Skipping this page.');
     });
   });
 });

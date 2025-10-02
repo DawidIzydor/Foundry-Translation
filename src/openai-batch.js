@@ -32,7 +32,12 @@ export async function callOpenAIBatch(textsToTranslate, options = {}) {
         
         // Call the onBatchCreated callback if provided, after batch is created but before waiting for completion
         if (options.onBatchCreated && typeof options.onBatchCreated === 'function') {
-            await options.onBatchCreated(batchJob.id);
+            try {
+                await options.onBatchCreated(batchJob.id);
+            } catch (callbackError) {
+                console.warn("Journal Translator | onBatchCreated callback failed:", callbackError);
+                // Continue processing even if callback fails
+            }
         }
         
         const completedBatch = await waitForBatchCompletion(batchJob, apiKey);

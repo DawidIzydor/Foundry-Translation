@@ -6,7 +6,8 @@ import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 
 // Mock the imported functions before importing main.js
 vi.mock('../src/settings.js', () => ({
-  registerSettings: vi.fn()
+  registerSettings: vi.fn(),
+  MODULE_ID: 'journal-translator'
 }));
 
 vi.mock('../src/translation-handlers.js', () => ({
@@ -82,7 +83,12 @@ describe('main.js', () => {
     it('should show page selection dialog when translate is clicked', async () => {
       const mockJournal = { 
         name: 'Test Journal',
-        pages: [{ id: 'page1', name: 'Page 1', text: { content: 'Content 1' } }]
+        pages: [{ 
+          id: 'page1', 
+          name: 'Page 1', 
+          text: { content: 'Content 1' },
+          getFlag: vi.fn(() => false)
+        }]
       };
       global.game.journal.get.mockReturnValue(mockJournal);
       showPageSelectionDialog.mockResolvedValue([mockJournal.pages[0]]);
@@ -106,7 +112,12 @@ describe('main.js', () => {
     it('should handle journal translation when user confirms', async () => {
       const mockJournal = { 
         name: 'Test Journal',
-        pages: [{ id: 'page1', name: 'Page 1', text: { content: 'Content 1' } }]
+        pages: [{ 
+          id: 'page1', 
+          name: 'Page 1', 
+          text: { content: 'Content 1' },
+          getFlag: vi.fn(() => false)
+        }]
       };
       const selectedPages = [mockJournal.pages[0]];
       
@@ -140,7 +151,12 @@ describe('main.js', () => {
     it('should handle documentId fallback for journal identification', async () => {
       const mockJournal = { 
         name: 'Test Journal',
-        pages: [{ id: 'page1', name: 'Page 1', text: { content: 'Content 1' } }]
+        pages: [{ 
+          id: 'page1', 
+          name: 'Page 1', 
+          text: { content: 'Content 1' },
+          getFlag: vi.fn(() => false)
+        }]
       };
       const selectedPages = [mockJournal.pages[0]];
       
@@ -193,7 +209,12 @@ describe('main.js', () => {
     it('should not translate when user cancels page selection', async () => {
       const mockJournal = { 
         name: 'Test Journal',
-        pages: [{ id: 'page1', name: 'Page 1', text: { content: 'Content 1' } }]
+        pages: [{ 
+          id: 'page1', 
+          name: 'Page 1', 
+          text: { content: 'Content 1' },
+          getFlag: vi.fn(() => false)
+        }]
       };
       
       global.game.journal.get.mockReturnValue(mockJournal);
@@ -221,7 +242,12 @@ describe('main.js', () => {
     it('should not translate when user cancels confirmation dialog', async () => {
       const mockJournal = { 
         name: 'Test Journal',
-        pages: [{ id: 'page1', name: 'Page 1', text: { content: 'Content 1' } }]
+        pages: [{ 
+          id: 'page1', 
+          name: 'Page 1', 
+          text: { content: 'Content 1' },
+          getFlag: vi.fn(() => false)
+        }]
       };
       const selectedPages = [mockJournal.pages[0]];
       

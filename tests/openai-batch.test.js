@@ -25,7 +25,7 @@ describe('openai-batch.js', () => {
   });
 
   describe('callOpenAIBatch', () => {
-    it('should return empty array when API key is missing', async () => {
+    it('should return empty result when API key is missing', async () => {
       game.settings.get.mockImplementation((moduleId, setting) => {
         if (setting === 'apiKey') return '';
         return 'default-value';
@@ -33,11 +33,11 @@ describe('openai-batch.js', () => {
 
       const result = await callOpenAIBatch(['Test text']);
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ batchId: null, translations: [] });
       expect(ui.notifications.error).toHaveBeenCalledWith('OpenAI API Key is missing. Please enter your API key in the module settings.');
     });
 
-    it('should return empty array when API key is whitespace only', async () => {
+    it('should return empty result when API key is whitespace only', async () => {
       game.settings.get.mockImplementation((moduleId, setting) => {
         if (setting === 'apiKey') return '   \t\n   ';
         return 'default-value';
@@ -45,7 +45,7 @@ describe('openai-batch.js', () => {
 
       const result = await callOpenAIBatch(['Test text']);
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ batchId: null, translations: [] });
       expect(ui.notifications.error).toHaveBeenCalledWith('OpenAI API Key is missing. Please enter your API key in the module settings.');
     });
 
@@ -74,7 +74,10 @@ describe('openai-batch.js', () => {
       const textsToTranslate = ['Text 1', 'Text 2'];
       const result = await callOpenAIBatch(textsToTranslate);
 
-      expect(result).toEqual(['Translated text 1', 'Translated text 2']);
+      expect(result).toEqual({ 
+        batchId: 'batch-123', 
+        translations: ['Translated text 1', 'Translated text 2'] 
+      });
       expect(ui.notifications.info).toHaveBeenCalledWith('All translations completed successfully!');
     });
 
@@ -86,7 +89,7 @@ describe('openai-batch.js', () => {
 
       const result = await callOpenAIBatch(['Test text']);
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ batchId: null, translations: [] });
       expect(ui.notifications.error).toHaveBeenCalledWith('Batch translation failed: File Upload Failed: File upload failed');
     });
 
@@ -102,7 +105,7 @@ describe('openai-batch.js', () => {
 
       const result = await callOpenAIBatch(['Test text']);
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ batchId: null, translations: [] });
       expect(ui.notifications.error).toHaveBeenCalledWith('Batch translation failed: Batch Creation Failed: Batch creation failed');
     });
 
@@ -121,7 +124,7 @@ describe('openai-batch.js', () => {
 
       const result = await callOpenAIBatch(['Test text']);
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ batchId: null, translations: [] });
       expect(ui.notifications.error).toHaveBeenCalledWith('Batch job failed with status: failed');
     });
 
@@ -145,7 +148,7 @@ describe('openai-batch.js', () => {
 
       const result = await callOpenAIBatch(['Test text']);
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ batchId: null, translations: [] });
       expect(ui.notifications.error).toHaveBeenCalledWith('Batch translation failed: Failed to download results: Download failed');
     });
 
@@ -173,7 +176,10 @@ describe('openai-batch.js', () => {
       const textsToTranslate = ['Text 1', 'Text 2'];
       const result = await callOpenAIBatch(textsToTranslate);
 
-      expect(result).toEqual(['Translated text 1', '']); // Second translation should be empty due to error
+      expect(result).toEqual({ 
+        batchId: 'batch-123', 
+        translations: ['Translated text 1', ''] // Second translation should be empty due to error
+      });
       expect(ui.notifications.info).toHaveBeenCalledWith('All translations completed successfully!');
     });
 
@@ -195,6 +201,103 @@ describe('openai-batch.js', () => {
       expect(capturedFormData.get('file')).toBeInstanceOf(File);
       expect(capturedFormData.get('file').name).toBe('batch.jsonl');
       expect(capturedFormData.get('file').type).toBe('application/jsonlines');
+    });
+
+    it('should call onBatchCreated callback when batch is created', async () => {
+      const mockFileResponse = { json: vi.fn().mockResolvedValue({ id: 'file-123' }) };
+      const mockBatchResponse = { json: vi.fn().mockResolvedValue({ id: 'batch-123' }) };
+      const mockCompletedBatch = { 
+        id: 'batch-123', 
+        status: 'completed', 
+        output_file_id: 'output-file-123',
+        request_counts: { completed: 1, total: 1 }
+      };
+      const mockResultsResponse = { 
+        text: vi.fn().mockResolvedValue(
+          '{"custom_id": "request-0", "response": {"body": {"choices": [{"message": {"content": "Translated text"}}]}}}'
+        ) 
+      };
+
+      global.fetch
+        .mockResolvedValueOnce({ ok: true, ...mockFileResponse }) // File upload
+        .mockResolvedValueOnce({ ok: true, ...mockBatchResponse }) // Batch creation
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(mockCompletedBatch) }) // Batch status
+        .mockResolvedValueOnce({ ok: true, ...mockResultsResponse }); // Results download
+
+      const onBatchCreatedCallback = vi.fn().mockResolvedValue();
+      
+      const result = await callOpenAIBatch(['Test text'], { 
+        onBatchCreated: onBatchCreatedCallback 
+      });
+
+      expect(onBatchCreatedCallback).toHaveBeenCalledWith('batch-123');
+      expect(onBatchCreatedCallback).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ 
+        batchId: 'batch-123', 
+        translations: ['Translated text'] 
+      });
+    });
+
+    it('should continue processing even if onBatchCreated callback fails', async () => {
+      const mockFileResponse = { json: vi.fn().mockResolvedValue({ id: 'file-123' }) };
+      const mockCompletedBatch = { 
+        id: 'batch-123', 
+        status: 'completed', 
+        output_file_id: 'output-file-123',
+        request_counts: { completed: 1, total: 1 }
+      };
+      const mockResultsResponse = { 
+        text: vi.fn().mockResolvedValue(
+          '{"custom_id": "request-0", "response": {"body": {"choices": [{"message": {"content": "Translated text"}}]}}}'
+        ) 
+      };
+
+      global.fetch
+        .mockResolvedValueOnce({ ok: true, ...mockFileResponse }) // File upload
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 'batch-123' }) }) // Batch creation
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(mockCompletedBatch) }) // Batch status
+        .mockResolvedValueOnce({ ok: true, ...mockResultsResponse }); // Results download
+
+      const onBatchCreatedCallback = vi.fn().mockRejectedValue(new Error('Callback failed'));
+      
+      const result = await callOpenAIBatch(['Test text'], { 
+        onBatchCreated: onBatchCreatedCallback 
+      });
+
+      expect(onBatchCreatedCallback).toHaveBeenCalledWith('batch-123');
+      expect(result).toEqual({ 
+        batchId: 'batch-123', 
+        translations: ['Translated text'] 
+      });
+    });
+
+    it('should work without onBatchCreated callback (backward compatibility)', async () => {
+      const mockFileResponse = { json: vi.fn().mockResolvedValue({ id: 'file-123' }) };
+      const mockCompletedBatch = { 
+        id: 'batch-123', 
+        status: 'completed', 
+        output_file_id: 'output-file-123',
+        request_counts: { completed: 1, total: 1 }
+      };
+      const mockResultsResponse = { 
+        text: vi.fn().mockResolvedValue(
+          '{"custom_id": "request-0", "response": {"body": {"choices": [{"message": {"content": "Translated text"}}]}}}'
+        ) 
+      };
+
+      global.fetch
+        .mockResolvedValueOnce({ ok: true, ...mockFileResponse }) // File upload
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 'batch-123' }) }) // Batch creation
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(mockCompletedBatch) }) // Batch status
+        .mockResolvedValueOnce({ ok: true, ...mockResultsResponse }); // Results download
+
+      // Test with no options parameter (backward compatibility)
+      const result = await callOpenAIBatch(['Test text']);
+
+      expect(result).toEqual({ 
+        batchId: 'batch-123', 
+        translations: ['Translated text'] 
+      });
     });
 
   });
