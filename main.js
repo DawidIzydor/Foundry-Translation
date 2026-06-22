@@ -154,9 +154,15 @@ async function attemptBatchRestoration(batchId, pages) {
             }
             
         } else if (completedBatch.status === 'failed') {
-            ui.notifications.error(`Batch ${batchId} failed. Status: ${completedBatch.status}`);
+            ui.notifications.error(`Batch ${batchId} failed. Clearing flags so you can retry.`);
+            for (const page of pages) {
+                await clearTranslationFlags(page);
+            }
         } else if (completedBatch.status === 'cancelled') {
-            ui.notifications.warn(`Batch ${batchId} was cancelled.`);
+            ui.notifications.warn(`Batch ${batchId} was cancelled. Clearing flags so you can retry.`);
+            for (const page of pages) {
+                await clearTranslationFlags(page);
+            }
         } else {
             ui.notifications.warn(`Batch ${batchId} is in unexpected status: ${completedBatch.status}`);
         }

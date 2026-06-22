@@ -384,9 +384,9 @@ describe('translation-handlers.js', () => {
     });
 
     it('should handle case when no batch ID is returned', async () => {
-      callOpenAIBatch.mockResolvedValue({ 
-        batchId: null, 
-        translations: [] 
+      callOpenAIBatch.mockResolvedValue({
+        batchId: null,
+        translations: []
       });
 
       await translateJournal(mockJournal);
@@ -397,6 +397,22 @@ describe('translation-handlers.js', () => {
       expect(setTranslationStartedFlags).not.toHaveBeenCalled();
 
       expect(ui.notifications.warn).toHaveBeenCalledWith('No translations received for "Test Journal".');
+    });
+
+    it('should not mark pages as completed when all translations are empty strings', async () => {
+      callOpenAIBatch.mockImplementation(async (texts, options) => {
+        if (options?.onBatchCreated) {
+          await options.onBatchCreated('test-batch-empty-123');
+        }
+        // All requests failed inside the batch — returns empty strings, not an empty array
+        return { batchId: 'test-batch-empty-123', translations: ['', ''] };
+      });
+
+      await translateJournal(mockJournal);
+
+      expect(ui.notifications.warn).toHaveBeenCalledWith('No translations received for "Test Journal".');
+      expect(setTranslationCompletedFlags).not.toHaveBeenCalled();
+      expect(removeBatchFromQueue).toHaveBeenCalledWith('test-batch-empty-123');
     });
 
     it('should still remove batch from queue even if translation fails', async () => {

@@ -41,8 +41,9 @@ export async function translateJournal(journal, selectedPages = null) {
         }
     });
 
-    // If we didn't get any translations, stop here
-    if (!translatedContents || translatedContents.length === 0) {
+    // If we didn't get any translations, stop here (also catches all-empty arrays from failed batches)
+    const hasAnyTranslations = translatedContents?.some(t => t && t.trim() !== '');
+    if (!hasAnyTranslations) {
         ui.notifications.warn(`No translations received for "${journal.name}".`);
         if (batchId) {
             removeBatchFromQueue(batchId);
