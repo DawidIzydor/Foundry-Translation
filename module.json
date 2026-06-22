@@ -2,7 +2,7 @@
   "id": "foundry-translation",
   "title": "Journal Translator",
   "description": "A module to translate journal entries using the OpenAI API.",
-  "version": "14.0.0",
+  "version": "14.0.1",
   "authors": [
       {
           "name": "DawidIzydor",
