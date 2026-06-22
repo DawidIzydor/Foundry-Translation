@@ -95,16 +95,15 @@ Hooks.on('getJournalEntryContextOptions', (application, options) => {
             }
 
             // Show confirmation dialog with selected page count
-            Dialog.confirm({
-                title: "Translate Journal Entry",
+            const confirmed = await foundry.applications.api.DialogV2.confirm({
+                window: { title: "Translate Journal Entry" },
                 content: `<p>You are about to translate ${selectedPages.length} page(s). This translation may take several minutes depending on the journal size and OpenAI API speed. Do you want to continue?</p>`,
-                yes: async () => {
-                    ui.notifications.info(`Translating journal entry: ${journal.name}`);
-                    await translateJournal(journal, selectedPages);
-                },
-                no: () => {},
-                defaultYes: false
+                yes: { default: false }
             });
+            if (confirmed) {
+                ui.notifications.info(`Translating journal entry: ${journal.name}`);
+                await translateJournal(journal, selectedPages);
+            }
         }
     });
 });

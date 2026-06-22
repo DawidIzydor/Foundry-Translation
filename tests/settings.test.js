@@ -99,19 +99,6 @@ describe('settings.js', () => {
       }));
     });
 
-    it('should register advanced settings menu', () => {
-      registerSettings();
-
-      expect(game.settings.registerMenu).toHaveBeenCalledWith(MODULE_ID, 'advancedSettings', expect.objectContaining({
-        name: 'Advanced Settings',
-        label: 'Configure Advanced Options',
-        hint: 'Advanced configuration options for power users.',
-        icon: 'fas fa-cogs',
-        type: expect.any(Function),
-        restricted: false
-      }));
-    });
-
     it('should have correct setting hints', () => {
       registerSettings();
 
@@ -164,80 +151,5 @@ describe('settings.js', () => {
     });
   });
 
-  describe('AdvancedSettingsMenu', () => {
-    let AdvancedSettingsMenu;
-
-    beforeEach(() => {
-      registerSettings();
-      // Get the AdvancedSettingsMenu class from the registerMenu call
-      const menuCall = game.settings.registerMenu.mock.calls.find(call => call[1] === 'advancedSettings');
-      AdvancedSettingsMenu = menuCall[2].type;
-    });
-
-    it('should have correct default options', () => {
-      const defaultOptions = AdvancedSettingsMenu.defaultOptions;
-      expect(defaultOptions.title).toBe('Journal Translator - Advanced Settings');
-      expect(defaultOptions.id).toBe('journal-translator-advanced-settings');
-      expect(defaultOptions.template).toBe('templates/generic-form.html');
-      expect(defaultOptions.width).toBe(500);
-      expect(defaultOptions.height).toBe('auto');
-      expect(defaultOptions.closeOnSubmit).toBe(true);
-    });
-
-    it('should return correct data structure from getData', () => {
-      // Mock the settings.settings map to include our settings
-      const mockSetting = {
-        name: 'Test Setting',
-        hint: 'Test hint'
-      };
-      game.settings.settings.set(`${MODULE_ID}.modelVersion`, mockSetting);
-      game.settings.settings.set(`${MODULE_ID}.systemPrompt`, mockSetting);
-      game.settings.settings.set(`${MODULE_ID}.pollingDelay`, mockSetting);
-      game.settings.settings.set(`${MODULE_ID}.maxPollingAttempts`, mockSetting);
-
-      // Mock game.settings.get to return test values
-      game.settings.get.mockImplementation((moduleId, setting) => {
-        const defaults = {
-          modelVersion: 'gpt-4o',
-          systemPrompt: 'System prompt',
-          pollingDelay: 30,
-          maxPollingAttempts: 120
-        };
-        return defaults[setting];
-      });
-
-      const menu = new AdvancedSettingsMenu();
-      const data = menu.getData();
-
-      expect(data.settings).toHaveLength(4);
-      expect(data.settings[0].name).toBe('modelVersion');
-      expect(data.settings[0].type).toBe('text');
-      expect(data.settings[1].name).toBe('systemPrompt');
-      expect(data.settings[1].type).toBe('textarea');
-      expect(data.settings[2].name).toBe('pollingDelay');
-      expect(data.settings[2].type).toBe('number');
-      expect(data.settings[3].name).toBe('maxPollingAttempts');
-      expect(data.settings[3].type).toBe('number');
-    });
-
-    it('should update settings correctly in _updateObject', async () => {
-      game.settings.set = vi.fn().mockResolvedValue(true);
-      
-      const menu = new AdvancedSettingsMenu();
-      const formData = {
-        modelVersion: 'gpt-4o-mini',
-        systemPrompt: 'Updated system prompt',
-        pollingDelay: 60,
-        maxPollingAttempts: 200
-      };
-
-      await menu._updateObject({}, formData);
-
-      expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, 'modelVersion', 'gpt-4o-mini');
-      expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, 'systemPrompt', 'Updated system prompt');
-      expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, 'pollingDelay', 60);
-      expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, 'maxPollingAttempts', 200);
-      expect(ui.notifications.info).toHaveBeenCalledWith('Advanced settings updated successfully!');
-    });
-  });
 });
+

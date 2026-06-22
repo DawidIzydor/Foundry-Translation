@@ -24,10 +24,6 @@ global.ui = {
   }
 };
 
-global.Dialog = {
-  confirm: vi.fn()
-};
-
 global.JournalEntry = {
   create: vi.fn()
 };
@@ -36,21 +32,17 @@ global.Hooks = {
   on: vi.fn()
 };
 
-global.FormApplication = class FormApplication {
-  static get defaultOptions() {
-    return {};
-  }
-  getData() {
-    return {};
-  }
-  async _updateObject() {
-    return {};
-  }
-};
-
 global.foundry = {
   utils: {
     mergeObject: (original, other) => ({ ...original, ...other })
+  },
+  applications: {
+    api: {
+      DialogV2: {
+        confirm: vi.fn(),
+        wait: vi.fn()
+      }
+    }
   }
 };
 

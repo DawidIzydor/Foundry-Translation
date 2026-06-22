@@ -11,117 +11,115 @@ import { isBatchInQueue } from './batch-queue.js';
  * @param {JournalEntry} journal - The journal entry containing pages to select from
  * @returns {Promise<Array>} Promise resolving to an array of selected page objects
  */
-export function showPageSelectionDialog(journal) {
-    return new Promise((resolve) => {
-        // Filter pages that have content and are not already translated/completed
-        const pagesToTranslate = journal.pages.filter(page => {
-            if (!page.text || !page.text.content) return false;
-            
-            const flags = getTranslationFlags(page);
-            return !flags.completed; // Only include pages that haven't been completed
-        });
-        
-        if (pagesToTranslate.length === 0) {
-            ui.notifications.warn(`No untranslated pages with content found in "${journal.name}".`);
-            resolve([]);
-            return;
+export async function showPageSelectionDialog(journal) {
+    // Filter pages that have content and are not already translated/completed
+    const pagesToTranslate = journal.pages.filter(page => {
+        if (!page.text || !page.text.content) return false;
+
+        const flags = getTranslationFlags(page);
+        return !flags.completed; // Only include pages that haven't been completed
+    });
+
+    if (pagesToTranslate.length === 0) {
+        ui.notifications.warn(`No untranslated pages with content found in "${journal.name}".`);
+        return [];
+    }
+
+    // Create checkbox HTML for each page with translation status
+    const pageCheckboxes = pagesToTranslate.map((page, index) => {
+        const flags = getTranslationFlags(page);
+        let statusIcon = '';
+        let statusText = '';
+        let isDisabled = false;
+
+        if (flags.queued && !flags.completed) {
+            statusIcon = '<i class="fas fa-clock" style="color: orange; margin-left: 8px;"></i>';
+            statusText = ` (In Progress - Batch: ${flags.batchId})`;
+            isDisabled = true;
         }
 
-        // Create checkbox HTML for each page with translation status
-        const pageCheckboxes = pagesToTranslate.map((page, index) => {
-            const flags = getTranslationFlags(page);
-            let statusIcon = '';
-            let statusText = '';
-            let isDisabled = false;
-            
-            if (flags.queued && !flags.completed) {
-                statusIcon = '<i class="fas fa-clock" style="color: orange; margin-left: 8px;"></i>';
-                statusText = ` (In Progress - Batch: ${flags.batchId})`;
-                isDisabled = true;
-            }
-            
-            const checkboxAttributes = isDisabled 
-                ? `disabled style="margin-right: 8px; opacity: 0.5;"` 
-                : `checked data-page-index="${index}" style="margin-right: 8px;"`;
-            
-            const labelStyle = isDisabled 
-                ? `display: flex; align-items: center; cursor: not-allowed; opacity: 0.7;` 
-                : `display: flex; align-items: center; cursor: pointer;`;
-            
-            return `
-                <div style="margin-bottom: 8px;">
-                    <label style="${labelStyle}">
-                        <input type="checkbox" ${checkboxAttributes}>
-                        <strong>${page.name || `Page ${index + 1}`}</strong>
-                        <span style="margin-left: 8px; color: #666; font-size: 12px;">
-                            (${Math.min(page.text.content.length, 100)} chars${page.text.content.length > 100 ? '...' : ''})${statusText}
-                        </span>
-                        ${statusIcon}
-                    </label>
-                </div>
-            `;
-        }).join('');
+        const checkboxAttributes = isDisabled
+            ? `disabled style="margin-right: 8px; opacity: 0.5;"`
+            : `checked data-page-index="${index}" style="margin-right: 8px;"`;
 
-        const totalPages = journal.pages.filter(page => page.text && page.text.content).length;
-        const alreadyTranslated = totalPages - pagesToTranslate.length;
-        
-        let infoText = `<p>Select which pages you want to translate:</p>`;
-        if (alreadyTranslated > 0) {
-            infoText += `<p style="color: #666; font-size: 12px; margin-bottom: 8px;">
-                <i class="fas fa-info-circle"></i> 
-                ${alreadyTranslated} page${alreadyTranslated > 1 ? 's' : ''} already translated (hidden from selection)
-            </p>`;
-        }
+        const labelStyle = isDisabled
+            ? `display: flex; align-items: center; cursor: not-allowed; opacity: 0.7;`
+            : `display: flex; align-items: center; cursor: pointer;`;
 
-        const content = `
-            ${infoText}
-            <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 8px; margin: 8px 0;">
-                ${pageCheckboxes}
-            </div>
-            <div style="margin-top: 12px;">
-                <button type="button" id="select-all-pages" style="margin-right: 8px;">Select All</button>
-                <button type="button" id="deselect-all-pages">Deselect All</button>
+        return `
+            <div style="margin-bottom: 8px;">
+                <label style="${labelStyle}">
+                    <input type="checkbox" ${checkboxAttributes}>
+                    <strong>${page.name || `Page ${index + 1}`}</strong>
+                    <span style="margin-left: 8px; color: #666; font-size: 12px;">
+                        (${Math.min(page.text.content.length, 100)} chars${page.text.content.length > 100 ? '...' : ''})${statusText}
+                    </span>
+                    ${statusIcon}
+                </label>
             </div>
         `;
+    }).join('');
 
-        new Dialog({
-            title: `Select Pages to Translate - ${journal.name}`,
-            content: content,
-            buttons: {
-                translate: {
-                    icon: '<i class="fas fa-language"></i>',
-                    label: "Translate Selected",
-                    callback: (html) => {
-                        const selectedIndexes = [];
-                        html.find('input[type="checkbox"]:checked:not(:disabled)').each((i, checkbox) => {
-                            if (checkbox.dataset.pageIndex !== undefined) {
-                                selectedIndexes.push(parseInt(checkbox.dataset.pageIndex));
-                            }
-                        });
-                        
-                        const selectedPages = selectedIndexes.map(index => pagesToTranslate[index]);
-                        resolve(selectedPages);
-                    }
-                },
-                cancel: {
-                    icon: '<i class="fas fa-times"></i>',
-                    label: "Cancel",
-                    callback: () => resolve([])
+    const totalPages = journal.pages.filter(page => page.text && page.text.content).length;
+    const alreadyTranslated = totalPages - pagesToTranslate.length;
+
+    let infoText = `<p>Select which pages you want to translate:</p>`;
+    if (alreadyTranslated > 0) {
+        infoText += `<p style="color: #666; font-size: 12px; margin-bottom: 8px;">
+            <i class="fas fa-info-circle"></i>
+            ${alreadyTranslated} page${alreadyTranslated > 1 ? 's' : ''} already translated (hidden from selection)
+        </p>`;
+    }
+
+    const content = `
+        ${infoText}
+        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 8px; margin: 8px 0;">
+            ${pageCheckboxes}
+        </div>
+        <div style="margin-top: 12px;">
+            <button type="button" id="select-all-pages" style="margin-right: 8px;">Select All</button>
+            <button type="button" id="deselect-all-pages">Deselect All</button>
+        </div>
+    `;
+
+    const selected = await foundry.applications.api.DialogV2.wait({
+        window: { title: `Select Pages to Translate - ${journal.name}` },
+        content: content,
+        buttons: [
+            {
+                action: "translate",
+                icon: "fas fa-language",
+                label: "Translate Selected",
+                callback: (event, button, dialog) => {
+                    const checkboxes = dialog.element.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
+                    const selectedIndexes = [...checkboxes]
+                        .filter(cb => cb.dataset.pageIndex !== undefined)
+                        .map(cb => parseInt(cb.dataset.pageIndex));
+                    return selectedIndexes.map(i => pagesToTranslate[i]);
                 }
             },
-            default: "translate",
-            render: (html) => {
-                // Add event listeners for select/deselect all buttons
-                html.find('#select-all-pages').on('click', () => {
-                    html.find('input[type="checkbox"]:not(:disabled)').prop('checked', true);
-                });
-                
-                html.find('#deselect-all-pages').on('click', () => {
-                    html.find('input[type="checkbox"]:not(:disabled)').prop('checked', false);
-                });
+            {
+                action: "cancel",
+                icon: "fas fa-times",
+                label: "Cancel",
+                callback: () => []
             }
-        }).render(true);
+        ],
+        default: "translate",
+        render: (event, dialog) => {
+            dialog.element.querySelector('#select-all-pages')?.addEventListener('click', () => {
+                dialog.element.querySelectorAll('input[type="checkbox"]:not(:disabled)')
+                    .forEach(cb => cb.checked = true);
+            });
+            dialog.element.querySelector('#deselect-all-pages')?.addEventListener('click', () => {
+                dialog.element.querySelectorAll('input[type="checkbox"]:not(:disabled)')
+                    .forEach(cb => cb.checked = false);
+            });
+        },
+        rejectClose: false
     });
+
+    return selected ?? [];
 }
 
 /**
@@ -224,72 +222,76 @@ export function createTranslatedPagesData(pagesToTranslate, translatedContents) 
  * @param {Object} incompletePages - Object mapping batch IDs to arrays of incomplete pages
  * @returns {Promise<{action: string, batchId?: string}>} User's choice and selected batch ID
  */
-export function showBatchRestorationDialog(journal, incompletePages) {
-    return new Promise((resolve) => {
-        const batchIds = Object.keys(incompletePages);
-        
-        // Create HTML for each incomplete batch
-        const batchInfo = batchIds.map(batchId => {
-            const pages = incompletePages[batchId];
-            const isActive = isBatchInQueue(batchId);
-            const statusText = isActive ? 
-                '<span style="color: green;">● Currently being monitored</span>' : 
-                '<span style="color: orange;">○ Not currently monitored</span>';
-            
-            return `
-                <div style="margin-bottom: 12px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                    <div style="font-weight: bold;">Batch ID: ${batchId}</div>
-                    <div style="font-size: 12px; color: #666; margin: 4px 0;">
-                        ${statusText}
-                    </div>
-                    <div style="font-size: 12px;">
-                        Pages waiting: ${pages.map(p => p.name || 'Unnamed').join(', ')}
-                    </div>
-                    <label style="margin-top: 8px; display: block;">
-                        <input type="radio" name="selected-batch" value="${batchId}" ${batchIds.indexOf(batchId) === 0 ? 'checked' : ''}>
-                        Restore this batch
-                    </label>
+export async function showBatchRestorationDialog(journal, incompletePages) {
+    const batchIds = Object.keys(incompletePages);
+
+    // Create HTML for each incomplete batch
+    const batchInfo = batchIds.map(batchId => {
+        const pages = incompletePages[batchId];
+        const isActive = isBatchInQueue(batchId);
+        const statusText = isActive ?
+            '<span style="color: green;">● Currently being monitored</span>' :
+            '<span style="color: orange;">○ Not currently monitored</span>';
+
+        return `
+            <div style="margin-bottom: 12px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <div style="font-weight: bold;">Batch ID: ${batchId}</div>
+                <div style="font-size: 12px; color: #666; margin: 4px 0;">
+                    ${statusText}
                 </div>
-            `;
-        }).join('');
-
-        const content = `
-            <p><strong>Incomplete translation detected!</strong></p>
-            <p>Found ${batchIds.length} incomplete translation batch${batchIds.length > 1 ? 'es' : ''} in "${journal.name}":</p>
-            
-            <div style="max-height: 200px; overflow-y: auto; margin: 12px 0;">
-                ${batchInfo}
+                <div style="font-size: 12px;">
+                    Pages waiting: ${pages.map(p => p.name || 'Unnamed').join(', ')}
+                </div>
+                <label style="margin-top: 8px; display: block;">
+                    <input type="radio" name="selected-batch" value="${batchId}" ${batchIds.indexOf(batchId) === 0 ? 'checked' : ''}>
+                    Restore this batch
+                </label>
             </div>
-            
-            <p style="margin-top: 12px; font-size: 13px; color: #666;">
-                Choose whether to attempt to restore an existing batch or start a completely new translation.
-            </p>
         `;
+    }).join('');
 
-        new Dialog({
-            title: "Incomplete Translation Found",
-            content: content,
-            buttons: {
-                restore: {
-                    icon: '<i class="fas fa-undo"></i>',
-                    label: "Restore Selected Batch",
-                    callback: (html) => {
-                        const selectedBatch = html.find('input[name="selected-batch"]:checked').val();
-                        resolve({ action: 'restore', batchId: selectedBatch });
-                    }
-                },
-                new: {
-                    icon: '<i class="fas fa-plus"></i>',
-                    label: "Start New Translation",
-                    callback: () => resolve({ action: 'new' })
-                },
-                cancel: {
-                    icon: '<i class="fas fa-times"></i>',
-                    label: "Cancel",
-                    callback: () => resolve({ action: 'cancel' })
+    const content = `
+        <p><strong>Incomplete translation detected!</strong></p>
+        <p>Found ${batchIds.length} incomplete translation batch${batchIds.length > 1 ? 'es' : ''} in "${journal.name}":</p>
+
+        <div style="max-height: 200px; overflow-y: auto; margin: 12px 0;">
+            ${batchInfo}
+        </div>
+
+        <p style="margin-top: 12px; font-size: 13px; color: #666;">
+            Choose whether to attempt to restore an existing batch or start a completely new translation.
+        </p>
+    `;
+
+    const result = await foundry.applications.api.DialogV2.wait({
+        window: { title: "Incomplete Translation Found" },
+        content: content,
+        buttons: [
+            {
+                action: "restore",
+                icon: "fas fa-undo",
+                label: "Restore Selected Batch",
+                callback: (event, button, dialog) => {
+                    const selected = dialog.element.querySelector('input[name="selected-batch"]:checked');
+                    return { action: 'restore', batchId: selected?.value };
                 }
             },
-            default: "restore"
-        }).render(true);
+            {
+                action: "new",
+                icon: "fas fa-plus",
+                label: "Start New Translation",
+                callback: () => ({ action: 'new' })
+            },
+            {
+                action: "cancel",
+                icon: "fas fa-times",
+                label: "Cancel",
+                callback: () => ({ action: 'cancel' })
+            }
+        ],
+        default: "restore",
+        rejectClose: false
     });
+
+    return result ?? { action: 'cancel' };
 }

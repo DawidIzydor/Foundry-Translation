@@ -38,7 +38,7 @@ describe('main.js', () => {
     global.game.journal.get.mockClear();
     global.ui.notifications.info.mockClear();
     global.ui.notifications.error.mockClear();
-    global.Dialog.confirm.mockClear();
+    global.foundry.applications.api.DialogV2.confirm.mockClear();
   });
 
   describe('initialization', () => {
@@ -110,38 +110,33 @@ describe('main.js', () => {
     });
 
     it('should handle journal translation when user confirms', async () => {
-      const mockJournal = { 
+      const mockJournal = {
         name: 'Test Journal',
-        pages: [{ 
-          id: 'page1', 
-          name: 'Page 1', 
+        pages: [{
+          id: 'page1',
+          name: 'Page 1',
           text: { content: 'Content 1' },
           getFlag: vi.fn(() => false)
         }]
       };
       const selectedPages = [mockJournal.pages[0]];
-      
+
       global.game.journal.get.mockReturnValue(mockJournal);
       showPageSelectionDialog.mockResolvedValue(selectedPages);
-      
+      global.foundry.applications.api.DialogV2.confirm.mockResolvedValue(true);
+
       const mockApplication = {};
       const mockClickedElement = {
         dataset: {
           entryId: 'journal-123'
         }
       };
-      
+
       contextMenuCallback(mockApplication, mockOptions);
       const translateCallback = mockOptions[0].callback;
-      
+
       await translateCallback(mockClickedElement);
-      
-      // Get the confirmation callback
-      const confirmationCall = global.Dialog.confirm.mock.calls[0][0];
-      const yesCallback = confirmationCall.yes;
-      
-      await yesCallback();
-      
+
       expect(global.game.journal.get).toHaveBeenCalledWith('journal-123');
       expect(showPageSelectionDialog).toHaveBeenCalledWith(mockJournal);
       expect(global.ui.notifications.info).toHaveBeenCalledWith('Translating journal entry: Test Journal');
@@ -149,38 +144,33 @@ describe('main.js', () => {
     });
 
     it('should handle documentId fallback for journal identification', async () => {
-      const mockJournal = { 
+      const mockJournal = {
         name: 'Test Journal',
-        pages: [{ 
-          id: 'page1', 
-          name: 'Page 1', 
+        pages: [{
+          id: 'page1',
+          name: 'Page 1',
           text: { content: 'Content 1' },
           getFlag: vi.fn(() => false)
         }]
       };
       const selectedPages = [mockJournal.pages[0]];
-      
+
       global.game.journal.get.mockReturnValue(mockJournal);
       showPageSelectionDialog.mockResolvedValue(selectedPages);
-      
+      global.foundry.applications.api.DialogV2.confirm.mockResolvedValue(true);
+
       const mockApplication = {};
       const mockClickedElement = {
         dataset: {
           documentId: 'journal-456' // No entryId, but has documentId
         }
       };
-      
+
       contextMenuCallback(mockApplication, mockOptions);
       const translateCallback = mockOptions[0].callback;
-      
+
       await translateCallback(mockClickedElement);
-      
-      // Get the confirmation callback
-      const confirmationCall = global.Dialog.confirm.mock.calls[0][0];
-      const yesCallback = confirmationCall.yes;
-      
-      await yesCallback();
-      
+
       expect(global.game.journal.get).toHaveBeenCalledWith('journal-456');
       expect(translateJournal).toHaveBeenCalledWith(mockJournal, selectedPages);
     });
@@ -235,46 +225,41 @@ describe('main.js', () => {
       expect(global.game.journal.get).toHaveBeenCalledWith('journal-123');
       expect(showPageSelectionDialog).toHaveBeenCalledWith(mockJournal);
       expect(global.ui.notifications.info).toHaveBeenCalledWith('No pages selected for translation.');
-      expect(global.Dialog.confirm).not.toHaveBeenCalled();
+      expect(global.foundry.applications.api.DialogV2.confirm).not.toHaveBeenCalled();
       expect(translateJournal).not.toHaveBeenCalled();
     });
 
     it('should not translate when user cancels confirmation dialog', async () => {
-      const mockJournal = { 
+      const mockJournal = {
         name: 'Test Journal',
-        pages: [{ 
-          id: 'page1', 
-          name: 'Page 1', 
+        pages: [{
+          id: 'page1',
+          name: 'Page 1',
           text: { content: 'Content 1' },
           getFlag: vi.fn(() => false)
         }]
       };
       const selectedPages = [mockJournal.pages[0]];
-      
+
       global.game.journal.get.mockReturnValue(mockJournal);
       showPageSelectionDialog.mockResolvedValue(selectedPages);
-      
+      global.foundry.applications.api.DialogV2.confirm.mockResolvedValue(false);
+
       const mockApplication = {};
       const mockClickedElement = {
         dataset: {
           entryId: 'journal-123'
         }
       };
-      
+
       contextMenuCallback(mockApplication, mockOptions);
       const translateCallback = mockOptions[0].callback;
-      
+
       await translateCallback(mockClickedElement);
-      
-      // Get the confirmation callback and call the "no" function
-      const confirmationCall = global.Dialog.confirm.mock.calls[0][0];
-      const noCallback = confirmationCall.no;
-      
-      noCallback();
-      
+
       expect(global.game.journal.get).toHaveBeenCalledWith('journal-123');
       expect(showPageSelectionDialog).toHaveBeenCalledWith(mockJournal);
-      expect(global.Dialog.confirm).toHaveBeenCalled();
+      expect(global.foundry.applications.api.DialogV2.confirm).toHaveBeenCalled();
       expect(translateJournal).not.toHaveBeenCalled();
     });
 

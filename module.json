@@ -12,8 +12,8 @@
   ],
   "esmodules": ["main.js"],
   "compatibility": {
-    "minimum": "13",
-    "verified": "13"
+    "minimum": "14",
+    "verified": "14"
   },
   "url": "https://github.com/DawidIzydor/Foundry-Translation",
   "manifest": "https://github.com/DawidIzydor/Foundry-Translation/releases/latest/download/module.json",

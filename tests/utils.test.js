@@ -374,7 +374,6 @@ describe('utils.js', () => {
 
   describe('showPageSelectionDialog', () => {
     let mockJournal;
-    let mockDialog;
 
     beforeEach(() => {
       mockJournal = {
@@ -388,7 +387,7 @@ describe('utils.js', () => {
           },
           {
             id: 'page2',
-            name: 'Page 2', 
+            name: 'Page 2',
             text: { content: 'Content for page 2' },
             getFlag: vi.fn(() => false)
           },
@@ -401,11 +400,7 @@ describe('utils.js', () => {
         ]
       };
 
-      // Mock Dialog constructor
-      mockDialog = {
-        render: vi.fn()
-      };
-      global.Dialog = vi.fn().mockImplementation(() => mockDialog);
+      global.foundry.applications.api.DialogV2.wait.mockReset();
 
       // Mock ui.notifications
       global.ui = {
@@ -425,27 +420,22 @@ describe('utils.js', () => {
 
       expect(ui.notifications.warn).toHaveBeenCalledWith('No untranslated pages with content found in "Test Journal".');
       expect(result).toEqual([]);
-      expect(global.Dialog).not.toHaveBeenCalled();
+      expect(global.foundry.applications.api.DialogV2.wait).not.toHaveBeenCalled();
     });
 
-    it('should create dialog with correct pages and configuration', () => {
-      showPageSelectionDialog(mockJournal);
+    it('should create dialog with correct pages and configuration', async () => {
+      await showPageSelectionDialog(mockJournal);
 
-      expect(global.Dialog).toHaveBeenCalledWith(
+      expect(global.foundry.applications.api.DialogV2.wait).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: 'Select Pages to Translate - Test Journal',
+          window: { title: 'Select Pages to Translate - Test Journal' },
           content: expect.stringContaining('Select which pages you want to translate:'),
-          buttons: expect.objectContaining({
-            translate: expect.objectContaining({
-              label: 'Translate Selected'
-            }),
-            cancel: expect.objectContaining({
-              label: 'Cancel'
-            })
-          })
+          buttons: expect.arrayContaining([
+            expect.objectContaining({ action: 'translate', label: 'Translate Selected' }),
+            expect.objectContaining({ action: 'cancel', label: 'Cancel' })
+          ])
         })
       );
-      expect(mockDialog.render).toHaveBeenCalledWith(true);
     });
   });
 });

@@ -44,8 +44,6 @@ export function registerSettings() {
         default: "new"
     });
 
-    // Advanced settings section (collapsed by default)
-    
     // Register the setting for the OpenAI model version
     game.settings.register(MODULE_ID, "modelVersion", {
         name: "OpenAI Model Version",
@@ -100,68 +98,6 @@ export function registerSettings() {
         default: 120
     });
 
-    // Register the advanced settings group
-    game.settings.registerMenu(MODULE_ID, "advancedSettings", {
-        name: "Advanced Settings",
-        label: "Configure Advanced Options",
-        hint: "Advanced configuration options for power users.",
-        icon: "fas fa-cogs",
-        type: class AdvancedSettingsMenu extends FormApplication {
-            static get defaultOptions() {
-                return foundry.utils.mergeObject(super.defaultOptions, {
-                    title: "Journal Translator - Advanced Settings",
-                    id: "journal-translator-advanced-settings",
-                    template: "templates/generic-form.html",
-                    width: 500,
-                    height: "auto",
-                    closeOnSubmit: true
-                });
-            }
-
-            getData() {
-                return {
-                    settings: [
-                        {
-                            name: "modelVersion",
-                            label: game.settings.settings.get(`${MODULE_ID}.modelVersion`).name,
-                            hint: game.settings.settings.get(`${MODULE_ID}.modelVersion`).hint,
-                            type: "text",
-                            value: game.settings.get(MODULE_ID, "modelVersion")
-                        },
-                        {
-                            name: "systemPrompt",
-                            label: game.settings.settings.get(`${MODULE_ID}.systemPrompt`).name,
-                            hint: game.settings.settings.get(`${MODULE_ID}.systemPrompt`).hint,
-                            type: "textarea",
-                            value: game.settings.get(MODULE_ID, "systemPrompt")
-                        },
-                        {
-                            name: "pollingDelay",
-                            label: game.settings.settings.get(`${MODULE_ID}.pollingDelay`).name,
-                            hint: game.settings.settings.get(`${MODULE_ID}.pollingDelay`).hint,
-                            type: "number",
-                            value: game.settings.get(MODULE_ID, "pollingDelay")
-                        },
-                        {
-                            name: "maxPollingAttempts",
-                            label: game.settings.settings.get(`${MODULE_ID}.maxPollingAttempts`).name,
-                            hint: game.settings.settings.get(`${MODULE_ID}.maxPollingAttempts`).hint,
-                            type: "number",
-                            value: game.settings.get(MODULE_ID, "maxPollingAttempts")
-                        }
-                    ]
-                };
-            }
-
-            async _updateObject(event, formData) {
-                for (const [key, value] of Object.entries(formData)) {
-                    await game.settings.set(MODULE_ID, key, value);
-                }
-                ui.notifications.info("Advanced settings updated successfully!");
-            }
-        },
-        restricted: false
-    });
 }
 
 export { MODULE_ID };
