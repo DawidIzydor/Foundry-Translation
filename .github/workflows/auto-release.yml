@@ -53,16 +53,6 @@ jobs:
           body: "Automated release from branch creation"
           artifacts: "module.zip, module.json"
           allowUpdates: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update Latest Release
-        uses: ncipollo/release-action@v1
-        with:
-          tag: "latest"
-          name: "Latest Release"
-          body: "Latest automated release (v${{ steps.version.outputs.version }})"
-          artifacts: "module.zip, module.json"
-          allowUpdates: true
           makeLatest: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
