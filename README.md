@@ -1,5 +1,5 @@
 # Foundry VTT Journal Translator
-![Tests](https://img.shields.io/github/actions/workflow/status/DawidIzydor/Foundry-Translation/test.yml?branch=main) ![Version](https://img.shields.io/github/v/release/DawidIzydor/Foundry-Translation) ![License](https://img.shields.io/github/license/DawidIzydor/Foundry-Translation)
+![Tests](https://img.shields.io/github/actions/workflow/status/DawidIzydor/Foundry-Translation/test.yml?branch=main) [![Coverage](https://codecov.io/gh/DawidIzydor/Foundry-Translation/branch/main/graph/badge.svg)](https://codecov.io/gh/DawidIzydor/Foundry-Translation) ![Version](https://img.shields.io/github/v/release/DawidIzydor/Foundry-Translation) ![License](https://img.shields.io/github/license/DawidIzydor/Foundry-Translation)
 
 
 **Journal Translator** is a Foundry VTT module that adds a `Translate` option to journal entries. It sends the journal content to the OpenAI API and returns a translated version, with options to either:
