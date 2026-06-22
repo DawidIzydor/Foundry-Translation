@@ -23,7 +23,7 @@ describe('settings.js', () => {
       registerSettings();
 
       // Check that game.settings.register was called the correct number of times
-      expect(game.settings.register).toHaveBeenCalledTimes(7);
+      expect(game.settings.register).toHaveBeenCalledTimes(9);
       
       // Check specific settings registrations
       expect(game.settings.register).toHaveBeenCalledWith(MODULE_ID, 'apiKey', expect.objectContaining({
@@ -96,6 +96,22 @@ describe('settings.js', () => {
           step: 10
         },
         default: 120
+      }));
+
+      expect(game.settings.register).toHaveBeenCalledWith(MODULE_ID, 'enableFolderMenu', expect.objectContaining({
+        name: 'Enable Folder Translate Menu',
+        scope: 'client',
+        config: true,
+        type: Boolean,
+        default: true
+      }));
+
+      expect(game.settings.register).toHaveBeenCalledWith(MODULE_ID, 'folderTranslationRecursive', expect.objectContaining({
+        name: 'Recursive Folder Translation',
+        scope: 'client',
+        config: true,
+        type: Boolean,
+        default: true
       }));
     });
 

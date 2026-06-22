@@ -283,10 +283,62 @@ describe('main.js', () => {
   });
 
   describe('hook registration', () => {
-    it('should register both required hooks', () => {
+    it('should register all required hooks', () => {
       expect(global.Hooks.on).toHaveBeenCalledWith('init', expect.any(Function));
       expect(global.Hooks.on).toHaveBeenCalledWith('getJournalEntryContextOptions', expect.any(Function));
-      expect(global.Hooks.on).toHaveBeenCalledTimes(2);
+      expect(global.Hooks.on).toHaveBeenCalledWith('getJournalDirectoryFolderContext', expect.any(Function));
+      expect(global.Hooks.on).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('folder context menu', () => {
+    let folderContextCallback;
+    let mockOptions;
+
+    beforeEach(() => {
+      mockOptions = [];
+      const hookCall = global.Hooks.on.mock.calls.find(
+        call => call[0] === 'getJournalDirectoryFolderContext'
+      );
+      expect(hookCall).toBeDefined();
+      folderContextCallback = hookCall[1];
+    });
+
+    it('should not add Translate All when enableFolderMenu is false', () => {
+      global.game.settings.get.mockImplementation((moduleId, key) =>
+        key === 'enableFolderMenu' ? false : undefined
+      );
+
+      folderContextCallback({}, mockOptions);
+
+      expect(mockOptions).toHaveLength(0);
+    });
+
+    it('should add Translate All option when enableFolderMenu is true', () => {
+      global.game.settings.get.mockImplementation((moduleId, key) =>
+        key === 'enableFolderMenu' ? true : undefined
+      );
+
+      folderContextCallback({}, mockOptions);
+
+      expect(mockOptions).toHaveLength(1);
+      expect(mockOptions[0].name).toBe('Translate All');
+      expect(mockOptions[0].icon).toBe('<i class="fas fa-language"></i>');
+    });
+
+    it('should show error when folder cannot be resolved', async () => {
+      global.game.settings.get.mockImplementation((moduleId, key) =>
+        key === 'enableFolderMenu' ? true : undefined
+      );
+      global.game.folders.get.mockReturnValue(null);
+
+      folderContextCallback({}, mockOptions);
+      const clickedEl = { dataset: { folderId: 'folder-xyz' }, closest: vi.fn(() => null) };
+      await mockOptions[0].callback(clickedEl);
+
+      expect(global.ui.notifications.error).toHaveBeenCalledWith(
+        'Could not identify the selected folder.'
+      );
     });
   });
 });

@@ -10,8 +10,8 @@
 
 import { registerSettings, MODULE_ID } from './src/settings.js';
 import { translateJournal, applyTranslationsWithMode, completeTranslation } from './src/translation-handlers.js';
-import { showPageSelectionDialog, showBatchRestorationDialog } from './src/utils.js';
-import { hasIncompleteTranslations, findIncompleteTranslations, clearTranslationFlags, setTranslationCompletedFlags } from './src/translation-flags.js';
+import { showPageSelectionDialog, showBatchRestorationDialog, getJournalsInFolder, showFolderSelectionDialog } from './src/utils.js';
+import { hasIncompleteTranslations, findIncompleteTranslations, clearTranslationFlags, setTranslationCompletedFlags, getTranslationFlags } from './src/translation-flags.js';
 import { isBatchInQueue, addBatchToQueue, removeBatchFromQueue } from './src/batch-queue.js';
 import { pollBatchStatus, retrieveBatchResponse, processResults, assembleFinalResults } from './src/openai-batch.js';
 
@@ -107,6 +107,53 @@ Hooks.on('getJournalEntryContextOptions', (application, options) => {
         }
     });
 });
+
+/**
+ * Adds a "Translate All" option to journal folder context menus.
+ */
+Hooks.on('getJournalDirectoryFolderContext', (app, options) => {
+    if (!game.settings.get(MODULE_ID, "enableFolderMenu")) return;
+    options.push({
+        name: "Translate All",
+        icon: '<i class="fas fa-language"></i>',
+        callback: async (clickedElement) => {
+            const folderId = clickedElement.dataset.folderId
+                ?? clickedElement.closest?.('[data-folder-id]')?.dataset.folderId;
+            const folder = game.folders.get(folderId);
+            if (!folder) {
+                ui.notifications.error("Could not identify the selected folder.");
+                return;
+            }
+            await translateFolderJournals(folder);
+        }
+    });
+});
+
+/**
+ * Shows the folder selection dialog and translates each selected journal+pages pair.
+ * @param {Folder} folder - The folder to translate journals from.
+ */
+async function translateFolderJournals(folder) {
+    const recursive = game.settings.get(MODULE_ID, "folderTranslationRecursive");
+    const journals = getJournalsInFolder(folder.id, recursive);
+
+    if (journals.length === 0) {
+        ui.notifications.warn(`No journals found in "${folder.name}".`);
+        return;
+    }
+
+    const selections = await showFolderSelectionDialog(folder, journals);
+    if (selections.length === 0) {
+        ui.notifications.info("No pages selected for translation.");
+        return;
+    }
+
+    for (const { journal, pages } of selections) {
+        if (pages.length === 0) continue;
+        ui.notifications.info(`Translating "${journal.name}"...`);
+        await translateJournal(journal, pages);
+    }
+}
 
 /**
  * Attempts to restore and monitor an existing OpenAI batch

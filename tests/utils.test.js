@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createPageUpdates, createTranslatedPagesData, showPageSelectionDialog } from '../src/utils.js';
+import { createPageUpdates, createTranslatedPagesData, showPageSelectionDialog, getJournalsInFolder, showFolderSelectionDialog } from '../src/utils.js';
 
 describe('utils.js', () => {
   beforeEach(() => {
@@ -436,6 +436,113 @@ describe('utils.js', () => {
           ])
         })
       );
+    });
+  });
+
+  describe('getJournalsInFolder', () => {
+    const makeJournal = (id, folderId) => ({ id, folder: folderId ? { id: folderId } : null });
+    const makeFolder = (id, parentId) => ({ id, folder: parentId ? { id: parentId } : null, type: 'JournalEntry' });
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('returns only direct children when recursive is false', () => {
+      const j1 = makeJournal('j1', 'folder1');
+      const j2 = makeJournal('j2', 'folder2');
+      global.game.journal.filter.mockImplementation(fn => [j1, j2].filter(fn));
+      global.game.folders.filter.mockImplementation(fn => []);
+
+      const result = getJournalsInFolder('folder1', false);
+
+      expect(result).toEqual([j1]);
+      expect(global.game.folders.filter).not.toHaveBeenCalled();
+    });
+
+    it('includes journals from subfolders when recursive is true', () => {
+      const j1 = makeJournal('j1', 'folder1');
+      const j2 = makeJournal('j2', 'subfolder1');
+      const sub = makeFolder('subfolder1', 'folder1');
+
+      global.game.journal.filter.mockImplementation(fn => [j1, j2].filter(fn));
+      global.game.folders.filter.mockImplementation(fn => [sub].filter(fn));
+
+      const result = getJournalsInFolder('folder1', true);
+
+      expect(result).toContain(j1);
+      expect(result).toContain(j2);
+    });
+
+    it('returns empty array for an empty folder', () => {
+      global.game.journal.filter.mockImplementation(() => []);
+      global.game.folders.filter.mockImplementation(() => []);
+
+      const result = getJournalsInFolder('empty-folder', true);
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('showFolderSelectionDialog', () => {
+    let mockFolder;
+    let mockJournals;
+
+    beforeEach(() => {
+      mockFolder = { id: 'folder1', name: 'Test Folder' };
+      mockJournals = [
+        {
+          id: 'j1',
+          name: 'Journal One',
+          pages: [
+            { id: 'p1', name: 'Page 1', text: { content: 'Hello' }, getFlag: vi.fn(() => false) },
+            { id: 'p2', name: 'Page 2', text: { content: 'World' }, getFlag: vi.fn(() => false) }
+          ]
+        },
+        {
+          id: 'j2',
+          name: 'Journal Two',
+          pages: [
+            { id: 'p3', name: 'Page 3', text: { content: 'Foo' }, getFlag: vi.fn(() => false) }
+          ]
+        }
+      ];
+
+      global.foundry.applications.api.DialogV2.wait.mockReset();
+      global.ui = { notifications: { warn: vi.fn() } };
+    });
+
+    it('warns and returns empty array when no journals have translatable pages', async () => {
+      const emptyJournals = [{ id: 'j1', name: 'Empty', pages: [] }];
+
+      const result = await showFolderSelectionDialog(mockFolder, emptyJournals);
+
+      expect(global.ui.notifications.warn).toHaveBeenCalledWith(
+        'No translatable pages found in "Test Folder".'
+      );
+      expect(result).toEqual([]);
+      expect(global.foundry.applications.api.DialogV2.wait).not.toHaveBeenCalled();
+    });
+
+    it('calls DialogV2.wait with correct window title and buttons', async () => {
+      await showFolderSelectionDialog(mockFolder, mockJournals);
+
+      expect(global.foundry.applications.api.DialogV2.wait).toHaveBeenCalledWith(
+        expect.objectContaining({
+          window: { title: 'Translate All — Test Folder' },
+          buttons: expect.arrayContaining([
+            expect.objectContaining({ action: 'translate', label: 'Translate Selected' }),
+            expect.objectContaining({ action: 'cancel', label: 'Cancel' })
+          ])
+        })
+      );
+    });
+
+    it('returns empty array on cancel', async () => {
+      global.foundry.applications.api.DialogV2.wait.mockResolvedValue([]);
+
+      const result = await showFolderSelectionDialog(mockFolder, mockJournals);
+
+      expect(result).toEqual([]);
     });
   });
 });

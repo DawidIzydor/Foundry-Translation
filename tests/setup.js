@@ -12,7 +12,12 @@ global.game = {
     settings: new Map()
   },
   journal: {
-    get: vi.fn()
+    get: vi.fn(),
+    filter: vi.fn(() => [])
+  },
+  folders: {
+    get: vi.fn(),
+    filter: vi.fn(() => [])
   }
 };
 

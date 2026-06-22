@@ -295,3 +295,131 @@ export async function showBatchRestorationDialog(journal, incompletePages) {
 
     return result ?? { action: 'cancel' };
 }
+
+/**
+ * Returns all journals inside a folder, optionally including those in subfolders.
+ * @param {string} folderId - The ID of the folder to search.
+ * @param {boolean} recursive - Whether to include journals from nested subfolders.
+ * @returns {JournalEntry[]} Array of journal entries found.
+ */
+export function getJournalsInFolder(folderId, recursive) {
+    const journals = game.journal.filter(j => j.folder?.id === folderId);
+    if (!recursive) return journals;
+    const subfolders = game.folders.filter(
+        f => f.folder?.id === folderId && f.type === 'JournalEntry'
+    );
+    for (const sub of subfolders) {
+        journals.push(...getJournalsInFolder(sub.id, true));
+    }
+    return journals;
+}
+
+/**
+ * Shows a scrollable selection dialog listing all journals and their pages from a folder.
+ * Untranslated pages are pre-checked; completed pages are unchecked; in-progress pages are disabled.
+ *
+ * @param {Folder} folder - The source folder (used for the dialog title).
+ * @param {JournalEntry[]} journals - Journals to display.
+ * @returns {Promise<Array<{journal: JournalEntry, pages: JournalEntryPage[]}>>}
+ *   Resolves to an array of journal+pages pairs the user selected, or [] on cancel.
+ */
+export async function showFolderSelectionDialog(folder, journals) {
+    // Build the per-journal data: only journals that have at least one page with content
+    const journalData = journals.map(journal => {
+        const pages = journal.pages.filter(p => p.text?.content);
+        return { journal, pages };
+    }).filter(({ pages }) => pages.length > 0);
+
+    if (journalData.length === 0) {
+        ui.notifications.warn(`No translatable pages found in "${folder.name}".`);
+        return [];
+    }
+
+    const fieldsets = journalData.map(({ journal, pages }, jIndex) => {
+        const pageRows = pages.map((page, pIndex) => {
+            const flags = getTranslationFlags(page);
+            const isDisabled = flags.queued && !flags.completed;
+            const isCompleted = flags.completed;
+
+            const attrs = isDisabled
+                ? `disabled style="margin-right:6px;opacity:0.5;"`
+                : `data-journal-index="${jIndex}" data-page-index="${pIndex}" style="margin-right:6px;"${isCompleted ? '' : ' checked'}`;
+
+            const labelStyle = isDisabled
+                ? `display:flex;align-items:center;opacity:0.6;cursor:not-allowed;`
+                : `display:flex;align-items:center;cursor:pointer;${isCompleted ? 'opacity:0.5;' : ''}`;
+
+            const statusBadge = isDisabled
+                ? `<span style="margin-left:6px;font-size:11px;color:orange;">(in progress)</span>`
+                : isCompleted
+                    ? `<span style="margin-left:6px;font-size:11px;color:#888;">(translated)</span>`
+                    : '';
+
+            return `
+                <div style="margin-bottom:4px;">
+                    <label style="${labelStyle}">
+                        <input type="checkbox" ${attrs}>
+                        <span>${page.name || `Page ${pIndex + 1}`}</span>
+                        ${statusBadge}
+                    </label>
+                </div>`;
+        }).join('');
+
+        return `
+            <fieldset style="margin-bottom:10px;border:1px solid #aaa;padding:6px 10px;border-radius:4px;">
+                <legend style="font-weight:bold;padding:0 4px;">${journal.name}</legend>
+                ${pageRows}
+            </fieldset>`;
+    }).join('');
+
+    const content = `
+        <div style="margin-bottom:8px;">
+            <button type="button" id="folder-select-all" style="margin-right:6px;">Select All</button>
+            <button type="button" id="folder-deselect-all">Deselect All</button>
+        </div>
+        <div style="max-height:400px;overflow-y:auto;border:1px solid #ccc;padding:8px;border-radius:4px;">
+            ${fieldsets}
+        </div>`;
+
+    const selected = await foundry.applications.api.DialogV2.wait({
+        window: { title: `Translate All — ${folder.name}` },
+        content,
+        buttons: [
+            {
+                action: "translate",
+                icon: "fas fa-language",
+                label: "Translate Selected",
+                callback: (event, button, dialog) => {
+                    const result = journalData.map(({ journal, pages }, jIndex) => {
+                        const checkboxes = dialog.element.querySelectorAll(
+                            `input[type="checkbox"][data-journal-index="${jIndex}"]:checked:not(:disabled)`
+                        );
+                        const selectedPages = [...checkboxes].map(cb => pages[parseInt(cb.dataset.pageIndex)]);
+                        return { journal, pages: selectedPages };
+                    }).filter(({ pages }) => pages.length > 0);
+                    return result;
+                }
+            },
+            {
+                action: "cancel",
+                icon: "fas fa-times",
+                label: "Cancel",
+                callback: () => []
+            }
+        ],
+        default: "translate",
+        render: (event, dialog) => {
+            dialog.element.querySelector('#folder-select-all')?.addEventListener('click', () => {
+                dialog.element.querySelectorAll('input[type="checkbox"]:not(:disabled)')
+                    .forEach(cb => cb.checked = true);
+            });
+            dialog.element.querySelector('#folder-deselect-all')?.addEventListener('click', () => {
+                dialog.element.querySelectorAll('input[type="checkbox"]:not(:disabled)')
+                    .forEach(cb => cb.checked = false);
+            });
+        },
+        rejectClose: false
+    });
+
+    return selected ?? [];
+}

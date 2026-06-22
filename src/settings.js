@@ -98,6 +98,23 @@ export function registerSettings() {
         default: 120
     });
 
+    game.settings.register(MODULE_ID, "enableFolderMenu", {
+        name: "Enable Folder Translate Menu",
+        hint: "Show a 'Translate All' option when right-clicking a journal folder.",
+        scope: "client",
+        config: true,
+        type: Boolean,
+        default: true
+    });
+
+    game.settings.register(MODULE_ID, "folderTranslationRecursive", {
+        name: "Recursive Folder Translation",
+        hint: "Include journals from subfolders when using 'Translate All' on a folder.",
+        scope: "client",
+        config: true,
+        type: Boolean,
+        default: true
+    });
 }
 
 export { MODULE_ID };
